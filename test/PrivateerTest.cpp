@@ -4,7 +4,7 @@
 #include <filesystem>
 #include <mpi.h>
 #include <gtest/gtest.h>
-#include <spdlog/common.h>
+#include "spdlog/spdlog.h"
 
 #include "../include/privateer/privateer.hpp"
 #include "../test_apps/utility/random.hpp"
@@ -29,7 +29,7 @@ class PrivateerTest : public testing::TestWithParam<std::tuple<size_t, size_t, s
     size_t* data;
 
     void SetUp() override {
-      //spdlog::set_pattern("{\"id\":\"\",\"name\":\"%v\",\"cat\":\"CPP_APP\",\"pid\":\"%P\",\"tid\":\"%t\",\"ts\":\"\",\"dur\":\"\",\"ph\":\"X\",\"args\":{}}");
+      spdlog::set_pattern("{\"id\":\"\",\"name\":\"%^%v%$\",\t\"cat\":\"CPP_APP\",\"pid\":\"%P\",\"tid\":\"%t\",\"ts\":\"%S%F\",\"dur\":\"\",\"ph\":\"X\",\"args\":{}}");
 
       char env[] = "PRIVATEER_MAX_MEM_BLOCKS=";
       char block_num[10];
@@ -393,7 +393,9 @@ TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot_Threaded) {
   for (offset_iterator = random_indices_first_half.begin(); offset_iterator <= random_indices_first_half.end(); ++offset_iterator){
     EXPECT_GE(*offset_iterator, 0);
     EXPECT_LT(*offset_iterator, this->num_ints);
-    //std::cout << "offset_iterator: " << *offset_iterator << std::endl;
+#ifdef ENABLE_LOGGING
+      spdlog::info("Faulted on block address: {}", *offset_iterator);
+#endif
     this->data[*offset_iterator] += 1;
   }
   this->priv->msync();
@@ -409,7 +411,9 @@ TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot_Threaded) {
     for (offset_iterator = random_indices.begin(); offset_iterator < random_indices.end(); ++offset_iterator){
       EXPECT_GE(*offset_iterator, 0);
       EXPECT_LT(*offset_iterator, this->num_ints);
-      //std::cout << "offset_iterator: " << *offset_iterator << std::endl;
+#ifdef ENABLE_LOGGING
+      spdlog::info("Faulted on block address: {}", *offset_iterator);
+#endif
       this->data[*offset_iterator] += 1;
     }
 

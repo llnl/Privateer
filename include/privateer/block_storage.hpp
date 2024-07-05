@@ -75,6 +75,9 @@ class block_storage
 
 
     std::string store_block(void* buffer, bool write_to_file, uint64_t block_index){
+#ifdef ENABLE_LOGGING
+      spdlog::info("block_storage: store_block()");
+#endif
       std::string block_hash = "";
       bool on_stash = is_multi_tiered();
       if (on_stash){
@@ -93,6 +96,9 @@ class block_storage
     }
 
     bool stash_block(void* block_start, uint64_t block_index){
+#ifdef ENABLE_LOGGING
+      spdlog::info("block_storage: stash_block()");
+#endif
       // Reusing stash file (mutable)
       std::string block_UUID = "";
       std::string block_temp_path = "";
@@ -123,6 +129,8 @@ class block_storage
       }
       if (pwrite(block_fd, block_start, block_granularity, 0) == -1){
         std::cerr << "block_storage: Error writing block to stash file - " << strerror(errno) << std::endl;
+        std::cerr << "block_start: " << block_start << std::endl;
+        std::cerr << "block_granularity: " << block_granularity << std::endl;
         return false;
       }
       if (close(block_fd) == -1){
@@ -133,6 +141,9 @@ class block_storage
     }
 
     bool unstash_block(uint64_t block_index){
+#ifdef ENABLE_LOGGING
+      spdlog::info("block_storage: unstash_block()");
+#endif
       if (stash_block_ids.find(block_index) == stash_block_ids.end()){
         std::cerr << "block_storage: Error unstashing block with index= " << block_index << " No backing stash block" << std::endl; 
         return false;
@@ -149,6 +160,9 @@ class block_storage
     }
 
     std::string commit_stash_block(uint64_t block_index){
+#ifdef ENABLE_LOGGING
+      spdlog::info("block_storage: commit_stash_block()");
+#endif
       if (stash_block_ids.find(block_index) == stash_block_ids.end()){
         std::cerr << "block_storage: Error - block with index " << block_index << " has no backing stash file" << std::endl;
         exit(-1);
@@ -268,6 +282,9 @@ class block_storage
     }
 
     bool copy_to_stash(std::string base_block, std::string stash_block){
+#ifdef ENABLE_LOGGING
+      spdlog::info("block_storage: copy_to_stash()");
+#endif
       if(!utility::file_exists(stash_block.c_str())){
         return utility::copy_file(base_block.c_str(), stash_block.c_str(), false);
       }
@@ -292,6 +309,9 @@ class block_storage
 
   private:
     void create(std::string base_directory_path, std::string stash_directory_path, size_t block_granularity_arg){
+#ifdef ENABLE_LOGGING
+      spdlog::info("block_storage: create()");
+#endif
       // std::cout << "stash directory path at create() " << stash_directory_path << std::endl;
       stash_directory = stash_directory_path;
       if (!stash_directory.empty()){
@@ -333,6 +353,9 @@ class block_storage
     }
 
     void open(std::string base_directory_path, std::string stash_directory_path){
+#ifdef ENABLE_LOGGING
+      spdlog::info("block_storage: open()");
+#endif
       stash_directory = stash_directory_path;
       if (!stash_directory.empty()){
         // Create stash directory
@@ -387,6 +410,9 @@ class block_storage
     }
 
     std::string store_block(void* buffer, bool write_to_file, uint64_t block_index, bool on_stash, std::string pre_computed_hash){
+#ifdef ENABLE_LOGGING
+      spdlog::info("block_storage: store_block()");
+#endif
       // std::cout << "BLOCK FD: " << block_fd << " Process ID: " << getpid() << std::endl;
 
       std::string block_hash = pre_computed_hash;

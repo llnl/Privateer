@@ -210,7 +210,7 @@ class virtual_memory_manager {
     void msync(){
       // 1) Write dirty_lru
 #ifdef ENABLE_LOGGING
-        spdlog::info("Msync Write Dirty LRU");
+        spdlog::info("virtual_memory_manager: handler() - Msync Write Dirty LRU");
 #endif
       std::vector<uint64_t> dirty_lru_vector(dirty_lru.begin(), dirty_lru.end());
       #pragma omp parallel for
@@ -243,7 +243,7 @@ class virtual_memory_manager {
       
       // 2) Commit stashed blocks
 #ifdef ENABLE_LOGGING
-        spdlog::info("Msync Commit Stashed Blocks");
+        spdlog::info("virtual_memory_manager: handler() - Msync Commit Stashed Blocks");
 #endif
       std::vector<uint64_t> stash_vector(stash_set.begin(), stash_set.end());
       #pragma omp parallel for
@@ -270,12 +270,15 @@ class virtual_memory_manager {
     }
 
     void handler(int sig, siginfo_t *si, void *ctx_void_ptr){
-      // const std::lock_guard<std::mutex> lock(sig_handler_mutex);
+      const std::lock_guard<std::mutex> lock(sig_handler_mutex);
       // Get and assert faulting address
       uint64_t fault_address = (uint64_t) si->si_addr;
       uint64_t start_address = (uint64_t) m_region_start_address;
       uint64_t block_index = (fault_address - start_address) / m_block_size;
       uint64_t block_address = start_address + block_index * m_block_size;
+#ifdef ENABLE_LOGGING
+      spdlog::info("virtual_memory_manager: handler() - Faulted on block: {}", block_index);
+#endif
       // std::cout << "thread: " << omp_get_thread_num() << " Faulted on block: " << (block_index % num_locks) << std::endl;
       // const std::lock_guard<std::mutex> lock(blocks_locks[block_index]); // lock(blocks_locks[block_index % num_locks]);
       // std::cout << "thread: " << omp_get_thread_num() << " grabbed lock number: " << (block_index % num_locks) << std::endl;
@@ -292,7 +295,9 @@ class virtual_memory_manager {
       
       
       if (present_blocks.find((uint64_t) block_address) != present_blocks.end()){ // Block is present in-memory (just change prot and LRU if needed)
-        
+#ifdef ENABLE_LOGGING
+      spdlog::info("virtual_memory_manager: handler() - Block present in memory");
+#endif
         if (is_write_fault){
           // Move from clean_lru to dirty_lru
           clean_lru.remove((uint64_t) block_address);
@@ -313,7 +318,9 @@ class virtual_memory_manager {
         }
       }
       else{ // block is not present in-memory
-        
+#ifdef ENABLE_LOGGING
+      spdlog::info("virtual_memory_manager: handler() - Block is not present in memory");
+#endif
         evict_if_needed();
         
         int prot = is_write_fault ? PROT_WRITE : PROT_READ;
@@ -446,7 +453,9 @@ class virtual_memory_manager {
         }
         present_blocks.insert((uint64_t)block_address);
       }
-      // std::cout << "DONE HANDLER" << std::endl;
+#ifdef ENABLE_LOGGING
+      spdlog::info("virtual_memory_manager: handler() - done");
+#endif
     }
 
     void* get_region_start_address(){
@@ -595,12 +604,12 @@ class virtual_memory_manager {
       void* to_evict;
       if ((present_blocks.size()*m_block_size) >= m_max_mem_size){
 #ifdef ENABLE_LOGGING
-        spdlog::info("Evicting");
+        spdlog::info("virtual_memory_manager: evict_if_needed() - Evicting");
 #endif
         if (clean_lru.size() > 0){
           to_evict = (void*) clean_lru.back();
 #ifdef ENABLE_LOGGING
-          spdlog::info("Evicting clean block: {}", ((uint64_t) to_evict - (uint64_t) m_region_start_address) / m_block_size);
+          spdlog::info("virtual_memory_manager: evict_if_needed() - Evicting clean block: {}", ((uint64_t) to_evict - (uint64_t) m_region_start_address) / m_block_size);
 #endif
           clean_lru.pop_back();
         }
@@ -611,7 +620,7 @@ class virtual_memory_manager {
           // std::cout << "Hello from the other side" << std::endl;
           uint64_t block_index = ((uint64_t) to_evict - (uint64_t) m_region_start_address) / m_block_size;
 #ifdef ENABLE_LOGGING
-          spdlog::info("Stashing block: {}", block_index);
+          spdlog::info("virtual_memory_manager: evict_if_needed() - Stashing block: {}", block_index);
 #endif
           if (!m_block_storage->stash_block(to_evict, block_index)){
             std::cerr << "Virtual memory manager: Error stashing block with index: " << block_index << std::endl;
@@ -629,6 +638,9 @@ class virtual_memory_manager {
     }
 
     void update_metadata(){
+#ifdef ENABLE_LOGGING
+          spdlog::info("virtual_memory_manager: update_metadata()");
+#endif
       // std::cout << "present_blocks.size(): " << present_blocks.size() << std::endl;
       if (present_blocks.size() == 0){
         return;
@@ -669,6 +681,9 @@ class virtual_memory_manager {
     }
 
     void create_version_metadata(const char* version_metadata_dir_path, const char* block_storage_dir_path, size_t version_capacity, bool allow_overwrite){
+#ifdef ENABLE_LOGGING
+          spdlog::info("virtual_memory_manager: create_version_metadata()");
+#endif
       std::string metadata_file_name = std::string(version_metadata_dir_path) + "/_metadata";
       std::string blocks_path_file_name = std::string(version_metadata_dir_path) + "/_blocks_path";
       std::string capacity_file_name = std::string(version_metadata_dir_path) + "/_capacity";

@@ -39,7 +39,7 @@ class virtual_memory_manager {
       // Verify system page alignment
       size_t pagesize = sysconf(_SC_PAGE_SIZE);
       if ( ((uint64_t) start_address) % pagesize != 0){
-        std::cerr << "Error: start_address is not system-page aligned" << std::endl;
+        spdlog::error("virtual_memory_manager: Start_address is not system-page aligned");
         exit(-1);
       }
 
@@ -47,13 +47,14 @@ class virtual_memory_manager {
         m_block_size = region_max_capacity / num_blocks;
       }
       else{
-        std::cerr << "PRIVATEER_NUM_BLOCKS is set, but region capacity is not divisible by it "<< std::endl;
+        spdlog::error("virtual_memory_manager: PRIVATEER_NUM_BLOCKS is set, but region capacity is not divisible by it");
         exit(-1);
       } */
         
       // Verify multiple of system's page size
       /* if (m_block_size % pagesize != 0){
-        std::cerr << "Error: block_size must be multiple of system page size (" << pagesize << ")" << std::endl;
+
+        spdlog::error("virtual_memory_manager: block_size must be multiple of system page size ({})", pagesize);
         exit(-1);
       } */
       // Verity region capacity is multiple of block size
@@ -62,10 +63,11 @@ class virtual_memory_manager {
         // Round capacity to nearest larger multiple of block size
         region_max_capacity = ((region_max_capacity / m_block_size) + 1) * m_block_size;
 
-        /* std::cerr << "region_max_capacity: " <<  region_max_capacity << std::endl;
-        std::cerr << "m_block_size: " << m_block_size << std::endl;
+        /*
+        spdlog::error("virtual_memory_manager: region_max_capacity = {}", region_max_capacity);
+        spdlog::error("virtual_memory_manager: m_block_size = {}", m_block_size);
         if (region_max_capacity > m_block_size){
-          std::cerr << "Virtual Memory Manager: Error - region size must be a non-zero multiple of block size" << std::endl;
+          spdlog::error("virtual_memory_manager: region size must be a non-zero multiple of block size");
           exit(-1);
         }
         else{
@@ -96,7 +98,7 @@ class virtual_memory_manager {
       }
       m_region_start_address = mmap(start_address, m_region_max_capacity, PROT_NONE, flags, -1, 0);
       if (m_region_start_address == MAP_FAILED){
-        std::cerr << "virtual_memory_manager: Error mmap-ing region starting address -  " << strerror(errno)<< std::endl;
+        spdlog::error("virtual_memory_manager: mmap-ing region starting address - {}", strerror(errno));
         exit(-1);
       }
 
@@ -130,10 +132,10 @@ class virtual_memory_manager {
       
       blocks_path_file.open(blocks_path_file_name);
       if (!blocks_path_file.is_open()){
-        std::cerr << "Error opening blocks file path at: " << blocks_path_file_name << std::endl;
+        spdlog::error("virtual_memory_manager: Error opening blocks file path at {}", blocks_path_file_name);
       }
       if (!std::getline(blocks_path_file, blocks_dir_path)){
-        std::cerr << "Error reading blocks path file" << std::endl;
+        spdlog::error("virtual_memory_manager: Error reading blocks path file");
       } 
       m_block_storage = new block_storage(blocks_dir_path, stash_path);
       m_block_size = m_block_storage->get_block_granularity();
@@ -157,7 +159,7 @@ class virtual_memory_manager {
       
       m_region_start_address = mmap(addr, m_region_max_capacity, PROT_NONE, mmap_flags, -1, 0);
       if (m_region_start_address == MAP_FAILED){
-        std::cerr << "virtual_memory_manager: mmap error - " << strerror(errno)<< std::endl;
+        spdlog::error("virtual_memory_manager: mmap error - {}", strerror(errno));
         exit(-1);
       }
       
@@ -166,7 +168,7 @@ class virtual_memory_manager {
       char* metadata_content = new char[metadata_size];
       size_t read = ::pread(metadata_fd, (void*) metadata_content, metadata_size, 0);
       if (read == -1){
-        std::cerr << "virtual_memory_manager: Error reading metadata - " << strerror(errno) << std::endl;
+        spdlog::error("virtual_memory_manager: Error reading metadata - {}", strerror(errno));
         exit(-1);
       }
       
@@ -202,7 +204,7 @@ class virtual_memory_manager {
     
     ~virtual_memory_manager(){
       if (close() !=0){
-        std::cerr << "virtual_memory_manager: Error, image not closed appropriately" << std::endl;
+        spdlog::error("virtual_memory_manager: Image not closed appropriately");
         exit(-1);
       }
     }
@@ -210,7 +212,7 @@ class virtual_memory_manager {
     void msync(){
       // 1) Write dirty_lru
 #ifdef ENABLE_LOGGING
-        spdlog::info("virtual_memory_manager: handler() - Msync Write Dirty LRU");
+        spdlog::info("virtual_memory_manager: msync() - Msync Write Dirty LRU");
 #endif
       std::vector<uint64_t> dirty_lru_vector(dirty_lru.begin(), dirty_lru.end());
       #pragma omp parallel for
@@ -222,7 +224,7 @@ class virtual_memory_manager {
           bool write_block_fd = true;
           std::string block_hash = block_storage_local.store_block(block_address, write_block_fd, block_index);
           if (block_hash.empty()){
-            std::cerr << "virtual_memory_manager: Error storing block with index " << block_index << std::endl;
+            spdlog::error("virtual_memory_manager: Error storing block with index {}", block_index);
             exit(-1);
           }
           
@@ -230,8 +232,7 @@ class virtual_memory_manager {
           // Change mprotect to read_only
           int mprotect_stat = mprotect(block_address, m_block_size, PROT_READ);
           if (mprotect_stat == -1){
-            std::cerr << "virtual_memory_manager: mprotect error for block with address: " << (uint64_t) block_address << " " << strerror(errno) << std::endl;
-            exit(-1);
+            spdlog::error("virtual_memory_manager: mprotect error for block with address: {} {}", (uint64_t) block_address, strerror(errno));
           }
           #pragma omp critial
           {
@@ -243,7 +244,7 @@ class virtual_memory_manager {
       
       // 2) Commit stashed blocks
 #ifdef ENABLE_LOGGING
-        spdlog::info("virtual_memory_manager: handler() - Msync Commit Stashed Blocks");
+        spdlog::info("virtual_memory_manager: msync() - Msync Commit Stashed Blocks");
 #endif
       std::vector<uint64_t> stash_vector(stash_set.begin(), stash_set.end());
       #pragma omp parallel for
@@ -255,7 +256,7 @@ class virtual_memory_manager {
         {
           std::string block_hash = /* block_storage_local.*/ m_block_storage->commit_stash_block(block_index);
           if (block_hash.empty()){
-            std::cerr << "virtual_memory_manager: Error committing stash block with address: " << (uint64_t) block_address << std::endl;
+            spdlog::error("virtual_memory_manager: Error committing stash block with address: {} {}", (uint64_t) block_address, strerror(errno));
             exit(-1);
           }
           blocks_ids[block_index] = block_hash;
@@ -270,7 +271,7 @@ class virtual_memory_manager {
     }
 
     void handler(int sig, siginfo_t *si, void *ctx_void_ptr){
-      const std::lock_guard<std::mutex> lock(sig_handler_mutex);
+      //const std::lock_guard<std::mutex> lock(sig_handler_mutex);
       // Get and assert faulting address
       uint64_t fault_address = (uint64_t) si->si_addr;
       uint64_t start_address = (uint64_t) m_region_start_address;
@@ -278,16 +279,20 @@ class virtual_memory_manager {
       uint64_t block_address = start_address + block_index * m_block_size;
 #ifdef ENABLE_LOGGING
       spdlog::info("virtual_memory_manager: handler() - Faulted on block: {}", block_index);
+      //spdlog::info("virtual_memory_manager: handler() - Faulted on block address: {}", block_address - start_address);
+      for(auto i : present_blocks) {
+        std::cout << "indices: " << (i - start_address) / m_block_size << std::endl;
+      }
 #endif
       // std::cout << "thread: " << omp_get_thread_num() << " Faulted on block: " << (block_index % num_locks) << std::endl;
       // const std::lock_guard<std::mutex> lock(blocks_locks[block_index]); // lock(blocks_locks[block_index % num_locks]);
       // std::cout << "thread: " << omp_get_thread_num() << " grabbed lock number: " << (block_index % num_locks) << std::endl;
       /* if (fault_address < (uint64_t) start_address || fault_address >= (uint64_t) start_address + m_region_max_capacity){
-        std::cerr << "Error: Faulting address out of range" << std::endl;
-        std::cerr << "Faulting Address: " << (uint64_t) fault_address << std::endl;
-        std::cerr << "Start:            " << (uint64_t) start_address << std::endl;
-        std::cerr << "End:              " << (uint64_t) start_address + m_region_max_capacity << std::endl;
-        exit(-1);
+         spdlog::error("virtual_memory_manager: Faulting address out of range");
+         spdlog::error("Faulting address: {}", (uint64_t) fault_address);
+         spdlog::error("Start: {}", (uint64_t) start_address);
+         spdlog::error("End: {}", (uint64_t) start_address + m_region_max_capacity);
+         exit(-1);
       } */
       // Handle block fault
       ucontext_t *ctx = (ucontext_t *) ctx_void_ptr;
@@ -305,7 +310,7 @@ class virtual_memory_manager {
           if (stash_set.find(block_address) != stash_set.end()){
             // std::cout << "STASHED TO CLEAN TO DIRTY" << std::endl;
             if (!m_block_storage->unstash_block(block_index)){
-              std::cerr << "virtual_memory_manager: Error unstashing block with index= " << block_index << std::endl;
+              spdlog::error("virtual_memory_manager: Error unstashing block with index = {}", block_index);
               exit(-1);
             }
             stash_set.erase(block_address);
@@ -313,7 +318,7 @@ class virtual_memory_manager {
         }
         int mprotect_stat = mprotect((void*) block_address, m_block_size, PROT_READ | PROT_WRITE);
         if (mprotect_stat == -1){
-          std::cerr << "virtual_memory_manager: mprotect error for block with address: " << (uint64_t) block_address << " " << strerror(errno) << std::endl;
+          spdlog::error("virtual_memory_manager: mprotect error for block with address: {} {}", (uint64_t) block_address, strerror(errno));
           exit(-1);
         }
       }
@@ -348,15 +353,15 @@ class virtual_memory_manager {
           int shm_fd = shm_open(block_name.c_str(), O_CREAT | O_RDWR, S_IWUSR);
           // std::cout << "shm_fd: " << shm_fd << std::endl;
           if (shm_fd == -1){
-            std::cerr << "Error shm_open: " << strerror(errno) << std::endl;
+            spdlog::error("virtual_memory_manager: Error shm_open - {}", strerror(errno));
           }
           int trunc_status = ftruncate(shm_fd, m_block_size);
           if (trunc_status == -1){
-            std::cerr << "Error ftruncate: " << strerror(errno) << std::endl;
+            spdlog::error("virtual_memory_manager: Error ftruncate - {}", strerror(errno));
           }
           // shm_unlink
           if (shm_unlink(block_name.c_str()) == -1){
-            std::cerr << "virtual_memory_manager: Error shm_unlink: " << strerror(errno) << std::endl;
+            spdlog::error("virtual_memory_manager: Error shm_unlink - {}", strerror(errno));
             exit(-1);
           }
           // mmap temporary location
@@ -366,14 +371,14 @@ class virtual_memory_manager {
           void* temp_buffer =  mmap(nullptr, m_block_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
           #endif
           if (temp_buffer == MAP_FAILED){
-            std::cerr << "Error mmap temp: " << strerror(errno) << std::endl;
+            spdlog::error("virtual_memory_manager: Error mmap temp - {}", strerror(errno));
             exit(-1);
           }
           
           // read block content into temporary buffer
           backing_block_fd = open(backing_block_path.c_str(), O_RDONLY);
           if (backing_block_fd == -1){
-            std::cerr << "virtual_memory_manager: Error opening backing block: " << backing_block_path  << " for address: " << block_address << " - " << strerror(errno) << std::endl;
+            spdlog::error("virtual_memory_manager: Error opening backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
             exit(-1);
           }
           #ifdef USE_COMPRESSION
@@ -381,7 +386,7 @@ class virtual_memory_manager {
           size_t compressed_block_size = utility::get_file_size(backing_block_path.c_str());
           void* const read_buffer = malloc(compressed_block_size);
           if (pread(backing_block_fd, read_buffer, compressed_block_size, 0) == -1){
-            std::cerr << "virtual_memory_manager: Error reading backing block: " << backing_block_path << " for address: " << " - " << strerror(errno) << block_address << std::endl;
+            spdlog::error("virtual_memory_manager: Error reading backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
             exit(-1);
           }
           size_t decompressed_size = utility::decompress(read_buffer, temp_buffer, compressed_block_size);
@@ -389,13 +394,13 @@ class virtual_memory_manager {
           #else
           
           if (pread(backing_block_fd, temp_buffer, m_block_size, 0) == -1){
-            std::cerr << "virtual_memory_manager: Error reading backing block: " << backing_block_path << " for address: " << " - " << strerror(errno) << block_address << std::endl;
+            spdlog::error("virtual_memory_manager: Error reading backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
             exit(-1);
           }
           #endif
           
           if (::close(backing_block_fd) == -1){
-            std::cerr << "virtual_memory_manager: Error closing backing block: " << backing_block_path << " - " << strerror(errno) << std::endl;
+            spdlog::error("virtual_memory_manager: Error closing backing block {} - {}", backing_block_path, strerror(errno));
             exit(-1);
           }
 
@@ -404,13 +409,13 @@ class virtual_memory_manager {
           void *mmap_block_address = mmap((void*) block_address, m_block_size, prot, MAP_PRIVATE | MAP_FIXED, shm_fd,0);
           #else
           if (mprotect(temp_buffer, m_block_size, prot) != 0){
-            std::cerr << "Error updating permissions on temporary buffer for block: " << block_address << std::endl;
+            spdlog::error("virtual_memory_manager: Error updating permissions on temporary buffer for block {}", block_address);
             exit(-1);
           }
           void *mmap_block_address = mremap(temp_buffer, m_block_size, m_block_size, MREMAP_FIXED | MREMAP_MAYMOVE, block_address);
           #endif
           if (mmap_block_address == MAP_FAILED){
-            std::cerr << "virtual_memory_manager: Error remapping address: " << block_address << std::endl;
+            spdlog::error("virtual_memory_manager: Error remapping address {}", block_address);
             exit(-1);
           }
 
@@ -418,13 +423,13 @@ class virtual_memory_manager {
           // unmap temp buffer
           int munmap_status = munmap(temp_buffer, m_block_size);
           if (munmap_status == -1){
-            std::cerr << "virtual_memory_manager: Error unmapping temp buffer: " << (uint64_t) temp_buffer << " for faulting block address: " << block_address << std::endl;
+            spdlog::error("virtual_memory_manager: Error unmapping temp buffer {} for faulting block address {}", (uint64_t) temp_buffer, block_address);
             exit(-1);
           }
           
           // close shm_fd
           if (::close(shm_fd) == -1){
-            std::cerr << "virtual_memory_manager: Error closing shm_fd: " << strerror(errno) << std::endl;
+            spdlog::error("virtual_memory_manager: Error closing shm_fd - {}", strerror(errno));
             exit(-1);
           }
           #endif
@@ -432,7 +437,7 @@ class virtual_memory_manager {
           if ((!stash_backing_block_path.empty()) && is_write_fault){
             // std::cout << "STASHED TO DIRTY: " << block_index << std::endl;
             if(!m_block_storage->unstash_block(block_index)){
-              std::cerr << "virtual_memory_manager: Error un-stashing block with index= " << block_index << std::endl;
+              spdlog::error("virtual_memory_manager: Error un-stashing block with index = {}", block_index);
               exit(-1);
             }
             stash_set.erase(block_address);
@@ -440,7 +445,7 @@ class virtual_memory_manager {
         }
         else{ // No backing block yet, just change mprotect
           if (mprotect((void*) block_address, m_block_size, prot) == -1){
-            std::cerr << "virtual_memory_manager: Error changing PROT for block: " << block_address << " - " << strerror(errno) << std::endl;
+            spdlog::error("virtual_memory_manager: Error changing PROT for block {} - {}", block_address, strerror(errno));
             exit(-1);
           }
         }
@@ -469,11 +474,11 @@ class virtual_memory_manager {
       std::ifstream size_file;
       size_file.open(size_file_name);
       if (!size_file.is_open()){
-        std::cerr << "Error opening size file path at: " << size_file_name << std::endl;
+        spdlog::error("Error opening size file path at {}", size_file_name);
         return (size_t) -1;
       }
       if (!std::getline(size_file, size_string)){
-        std::cerr << "Error reading reading file" << std::endl;
+        spdlog::error("Error reading reading file");
         return (size_t) -1;
       }
       try {
@@ -481,7 +486,7 @@ class virtual_memory_manager {
         return size;
       }
       catch (const std::invalid_argument& ia){
-        std::cerr << "Error parsing version size from file - " << ia.what() << std::endl;
+        spdlog::error("Error parsing version size from file - {}", ia.what());
         return (size_t) -1;
       }
     }
@@ -493,11 +498,11 @@ class virtual_memory_manager {
       
       blocks_path_file.open(blocks_path_file_name);
       if (!blocks_path_file.is_open()){
-        std::cerr << "Error opening blocks file path at: " << blocks_path_file_name << std::endl;
+        spdlog::error("Error opening blocks file path at {}", blocks_path_file_name);
         exit(-1);
       }
       if (!std::getline(blocks_path_file, blocks_dir_path)){
-        std::cerr << "Error reading blocks path file" << std::endl;
+        spdlog::error("Error reading blocks path file");
         exit(-1);
       } 
       return block_storage::get_version_block_granularity(blocks_dir_path);
@@ -515,13 +520,13 @@ class virtual_memory_manager {
       // Create new version metadata directory
       if(utility::directory_exists(version_metadata_path)){
         if (utility::file_exists(snapshot_metadata_path.c_str())){
-          std::cerr << "Error: Version metadata directory already exists" << std::endl;
+          spdlog::error("Error: Version metadata directory already exists");
           return false;
         }
       }
 
       else if (!utility::create_directory(version_metadata_path)){
-        std::cerr << "Error: Failed to create version metadata directory at " << version_metadata_path << " - " << strerror(errno) << std::endl;
+        spdlog::error("Error: Failed to create version metadata directory at {} - {}", version_metadata_path, strerror(errno));
         return false;
       }
 
@@ -565,7 +570,7 @@ class virtual_memory_manager {
           void* address = (void*) *it;
           int status = munmap(address, m_block_size);
           if (status == -1){
-            std::cerr << "virtual_memory_manager: Error unmapping region with address: " << *it << " - " << strerror(errno) << std::endl;
+            spdlog::error("virtual_memory_manager: Error unmapping region with address {} - {}", *it, strerror(errno));
             return -1;
           }
       }
@@ -623,14 +628,14 @@ class virtual_memory_manager {
           spdlog::info("virtual_memory_manager: evict_if_needed() - Stashing block: {}", block_index);
 #endif
           if (!m_block_storage->stash_block(to_evict, block_index)){
-            std::cerr << "Virtual memory manager: Error stashing block with index: " << block_index << std::endl;
+            spdlog::error("virtual_memory_manager: Error stashing block with index {}", block_index);
             exit(-1);
           }
           stash_set.insert((uint64_t) to_evict);
         }
         int protect_status = mprotect(to_evict, m_block_size, PROT_NONE);
         if (protect_status == -1){
-          std::cerr << "virtual_memory_manager: Error evicting address: " << to_evict << std::endl;
+          spdlog::error("virtual_memory_manager: Error evicting address {}", to_evict);
           exit(-1);
         }
         present_blocks.erase((uint64_t) to_evict);
@@ -665,16 +670,16 @@ class virtual_memory_manager {
       // std::cout << "update metadata to path: " << metadata_path << std::endl;
       int metadata_fd = open(metadata_path.c_str(), O_RDWR);
       if (metadata_fd == -1){
-        std::cerr << "virtual_memory_manager: Error opening metadata file " << strerror(errno) << std::endl;
+        spdlog::error("virtual_memory_manager: Error opening metadata file - {}", strerror(errno));
         exit(-1);
       }
       const auto written = ::pwrite(metadata_fd ,(void*) blocks_bytes, num_blocks*HASH_SIZE, 0);
       if (written == -1){
-        std::cerr << "Error, failed to update metadata and mappings: " << strerror(errno) << std::endl;
+        spdlog::error("virtual_memory_manager: Failed to update metadata and mappings - {}", strerror(errno));
         exit(-1);
       }
       if (::close(metadata_fd == -1)){
-        std::cerr << "Virtual Memory Manager: Error closing metadata file after update - " << strerror(errno) << std::endl;
+        spdlog::error("virtual_memory_manager: Error closing metadata file after update - {}", strerror(errno));
         exit(-1);
       }
       delete [] blocks_bytes;
@@ -693,28 +698,28 @@ class virtual_memory_manager {
         if (utility::file_exists(metadata_file_name.c_str()) || utility::file_exists(blocks_path_file_name.c_str()) || utility::file_exists(capacity_file_name.c_str())){
           if (allow_overwrite){
             if (!std::filesystem::remove(std::filesystem::path(metadata_file_name)) || !std::filesystem::remove(std::filesystem::path(blocks_path_file_name)) || !std::filesystem::remove(std::filesystem::path(capacity_file_name))){
-              std::cerr << "Error removing existing metadata files" << std::endl;
+              spdlog::error("virtual_memory_manager: Error removing existing metadata files");
               exit(-1);
             }
             if (!utility::create_directory(version_metadata_dir_path)){
-              std::cerr << "Error: Failed to create version metadata directory at " << version_metadata_dir_path << " - " << strerror(errno) << std::endl;
+              spdlog::error("virtual_memory_manager: Failed to create version metadata directory at {} - {}", version_metadata_dir_path, strerror(errno));
               exit(-1);
             }
           }
           else{
-            std::cerr << "Error: Version metadata already exists" << std::endl;
+            spdlog::error("Version metadata already exists");
             exit(-1);
           }
         }
       }
       else if (!utility::create_directory(version_metadata_dir_path)){
-        std::cerr << "Error: Failed to create version metadata directory at " << version_metadata_dir_path << " - " << strerror(errno) << std::endl;
+        spdlog::error("virtual_memory_manager: Failed to create version metadata directory at {} - {}", version_metadata_dir_path, strerror(errno));
         exit(-1);
       }
       // Create blocks metadata file
       metadata_fd = ::open(metadata_file_name.c_str(), O_RDWR | O_CREAT | O_EXCL, (mode_t) 0666);
       if (metadata_fd == -1){
-        std::cerr << "Privateer: Error opening metadata file: " << metadata_file_name << " - " << strerror(errno) << std::endl;
+        spdlog::error("virtual_memory_manager: Error opening metadata file {} - {}", metadata_file_name, strerror(errno));
         exit(-1);
       }
       // Create file to save blocks path

@@ -29,7 +29,7 @@ class PrivateerTest : public testing::TestWithParam<std::tuple<size_t, size_t, s
     size_t* data;
 
     void SetUp() override {
-      spdlog::set_pattern("{\"id\":\"\",\"name\":\"%^%v%$\",\t\"cat\":\"CPP_APP\",\"pid\":\"%P\",\"tid\":\"%t\",\"ts\":\"%S%F\",\"dur\":\"\",\"ph\":\"X\",\"args\":{}}");
+      //spdlog::set_pattern("{\"id\":\"\",\"name\":\"%^%v%$\",\t\"cat\":\"CPP_APP\",\"pid\":\"%P\",\"tid\":\"%t\",\"ts\":\"%S%F\",\"dur\":\"\",\"ph\":\"X\",\"args\":{}}");
 
       char env[] = "PRIVATEER_MAX_MEM_BLOCKS=";
       char block_num[10];
@@ -120,6 +120,9 @@ TEST_P(PrivateerTest, SimpleDenseWrite) {
   this->data = (size_t*) priv->open_read_only(nullptr, "v0");
   for (size_t i = 0; i < this->num_ints; i++) {
     EXPECT_EQ(this->data[i], i);
+#ifdef ENABLE_LOGGING
+    //spdlog::info("Wrote block address: {}", this->data[i]);
+#endif
   }
 }
 
@@ -249,37 +252,56 @@ TEST_P(PrivateerTest, MultipleWrite_Threaded) {
 
 TEST_P(PrivateerTest, MultipleWriteSparse_Threaded) {
   size_t num_threads = std::get<4>(GetParam());
+  //size_t int_iter = std::get<2>(GetParam());
+  size_t int_iter = this->num_ints;
   omp_set_num_threads(num_threads);
-#pragma omp for
-  for (size_t i = 0; i < this->num_ints; i++) {
+#pragma omp parallel for
+  for (size_t i = 0; i < int_iter; i++) {
     this->data[i] = i / num_threads + (i % num_threads) * (this->num_ints / num_threads);
+#ifdef ENABLE_LOGGING
+    //spdlog::info("Wrote to block address: {}", this->data[i] * sizeof(size_t));
+#endif
   }
+  priv->msync();
 
   int num_iterations = std::get<2>(GetParam());
   for (size_t k = 0; k < num_iterations; k++) {
+#ifdef ENABLE_LOGGING
+      spdlog::info("Iteration: {}", k);
+#endif
     delete priv;
     priv = new Privateer(Privateer::OPEN, "datastore");
     this->data = (size_t*) priv->open_read_only(nullptr, "v0");
-#pragma omp for
-    for (size_t i = 0; i < this->num_ints; i++) {
+/*
+#pragma omp parallel for
+    for (size_t i = 0; i < int_iter; i++) {
       EXPECT_EQ(this->data[i], i / num_threads + (i % num_threads) * (this->num_ints / num_threads));
     }
-#pragma omp for
-    for (size_t i = 0; i < this->num_ints; i++) {
+    //*/
+#pragma omp parallel for
+    for (size_t i = 0; i < int_iter; i++) {
       this->data[i] = ((this->num_ints - 1) - i) / num_threads + (((this->num_ints - 1) - i) % num_threads) * (this->num_ints / num_threads);
+#ifdef ENABLE_LOGGING
+      //spdlog::info("Wrote to block address: {}", this->data[i] * sizeof(size_t));
+#endif
     }
     priv->msync();
     delete priv;
 
     priv = new Privateer(Privateer::OPEN, "datastore");
     this->data = (size_t*) priv->open  (nullptr, "v0");
-#pragma omp for
-    for (size_t i = 0; i < this->num_ints; i++) {
+/*
+#pragma omp parallel for
+    for (size_t i = 0; i < int_iter; i++) {
       EXPECT_EQ(this->data[i], ((this->num_ints - 1) - i) / num_threads + (((this->num_ints - 1) - i) % num_threads) * (this->num_ints / num_threads));
     }
-#pragma omp for
-    for (size_t i = 0; i < this->num_ints; i++) {
+    //*/
+#pragma omp parallel for
+    for (size_t i = 0; i < int_iter; i++) {
       this->data[i] = i / num_threads + (i % num_threads) * (this->num_ints / num_threads);;
+#ifdef ENABLE_LOGGING
+      //spdlog::info("Wrote to block address: {}", this->data[i] * sizeof(size_t));
+#endif
     }
     priv->msync();
   }
@@ -569,12 +591,16 @@ INSTANTIATE_TEST_SUITE_P(
       std::make_tuple(    8,               8 * 1024LLU,  5, 10, 6, 10, 10),
       std::make_tuple(   16,               8 * 1024LLU,  5, 10, 6, 10, 10),
       std::make_tuple(16384,               8 * 1024LLU,  5, 10, 6, 10, 10),
+      std::make_tuple(    1,        8 * 1024 * 1024LLU,  3, 10, 2, 10, 10), // page eviction occurs
+      std::make_tuple(    2,        8 * 1024 * 1024LLU,  3, 10, 2, 10, 10), // page eviction occurs
       std::make_tuple(    1,        8 * 1024 * 1024LLU,  3, 10, 4, 10, 10), // page eviction occurs
       std::make_tuple(    2,        8 * 1024 * 1024LLU,  3, 10, 4, 10, 10), // page eviction occurs
       std::make_tuple(    1,        8 * 1024 * 1024LLU,  3, 10, 6, 10, 10), // page eviction occurs
       std::make_tuple(    2,        8 * 1024 * 1024LLU,  3, 10, 6, 10, 10), // page eviction occurs
       std::make_tuple(    1,        8 * 1024 * 1024LLU,  3, 10, 8, 10, 10), // page eviction occurs
       std::make_tuple(    2,        8 * 1024 * 1024LLU,  3, 10, 8, 10, 10), // page eviction occurs
+      std::make_tuple(    1,        8 * 1024 * 1024LLU,  5, 10, 6, 10, 10), // page eviction occurs
+      std::make_tuple(    2,        8 * 1024 * 1024LLU,  5, 10, 6, 10, 10), // page eviction occurs
       std::make_tuple(    4,        8 * 1024 * 1024LLU,  5, 10, 6, 10, 10),
       std::make_tuple(    8,        8 * 1024 * 1024LLU,  5, 10, 6, 10, 10),
       std::make_tuple(   16,        8 * 1024 * 1024LLU,  5, 10, 6, 10, 10),

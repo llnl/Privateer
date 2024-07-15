@@ -29,9 +29,14 @@ if (ENABLE_ZSTD)
   target_compile_definitions(PrivateerTest PRIVATE USE_COMPRESSION)
 endif()
 
-if (ENABLE_SPDLOG)
-  #target_include_directories(PrivateerTest PRIVATE ${CMAKE_SOURCE_DIR}/libs/)
-  #target_link_libraries(PrivateerTest PUBLIC spdlog::spdlog_header_only)
-  #target_link_libraries(PrivateerTest PUBLIC spdlog::spdlog)
+#if (ENABLE_SPDLOG)
+  target_link_libraries(PrivateerTest PUBLIC spdlog::spdlog)
+
   target_compile_definitions(PrivateerTest PRIVATE ENABLE_LOGGING)
+#endif()
+
+if (ENABLE_UFFD=ON)
+  target_compile_definitions(PrivateerTest PRIVATE UFFD)
+else()
+  target_compile_definitions(PrivateerTest PRIVATE SIGACTION)
 endif()

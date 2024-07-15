@@ -37,10 +37,15 @@ class PrivateerTest : public testing::TestWithParam<std::tuple<size_t, size_t, s
       strcat(env, block_num);
       putenv(env);
 
+/*
+      // uffd env var
+      putenv("PRIVATEER_BLOCK_SIZE=2097152");
+//*/
+
       priv = new Privateer(Privateer::CREATE, "datastore");
       size_bytes = std::get<1>(GetParam());
       num_ints = size_bytes / sizeof(size_t);
-      data = (size_t*) priv->create(nullptr, "v0", size_bytes);
+      data = (size_t*) priv->create(nullptr, "v0", size_bytes, true);
     }
 
     void TearDown() override {
@@ -106,7 +111,7 @@ TEST_P(PrivateerTest, SimpleWrite) {
   EXPECT_EQ(this->data[end], 10);
   std::cout << "region size: " << this->priv->region_size() << std::endl;
   std::cout << "version capacity: " << this->priv->version_capacity("datastore/v0") << std::endl;
-  std::cout << "version block size: " << this->priv->version_block_size("datastore/v0") << std::endl;
+  //std::cout << "version block size: " << this->priv->version_block_size("datastore/v0") << std::endl;
 }
 
 TEST_P(PrivateerTest, SimpleDenseWrite) {
@@ -347,6 +352,7 @@ TEST_P(PrivateerTest, SimpleSnapshot) {
   }
   priv->msync();
   for (int j = 1; j <= num_iterations; ++j){
+  spdlog::info("iteration: {}", j);
     for (size_t k = 1; k < this->num_ints; k+=2) {
       this->data[k]++;
     }
@@ -497,7 +503,7 @@ TEST(PrivateerTest_Concurrent, ConcurrentWrite) {
 
   if (world_rank == 0){
       Privateer privateer(Privateer::CREATE, "datastore");
-      privateer.create(nullptr, "v0", size_bytes);
+      privateer.create(nullptr, "v0", size_bytes, true);
       privateer.msync();
   }
   MPI_Barrier(MPI_COMM_WORLD);

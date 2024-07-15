@@ -121,13 +121,14 @@ endif()
 
 # SPDLOG
 # ------------------SPDLOG----------------------------
-option(ENABLE_SPDLOG "Enable logging" OFF)
-if (ENABLE_SPDLOG)
-  message(STATUS "Configuring with spdlog")
+#option(ENABLE_SPDLOG "Enable logging" OFF)
+#if (ENABLE_SPDLOG)
+message(STATUS "Configuring with spdlog")
+
   find_package(spdlog CONFIG REQUIRED)
   TARGET_LINK_LIBRARIES(privateer-static spdlog::spdlog)
   target_compile_definitions(privateer-static PRIVATE ENABLE_LOGGING)
-endif()
+#endif()
 # --------------------------------------------------
 
 # iostreams
@@ -146,9 +147,18 @@ install(TARGETS  privateer-static # Removed "privateer" from here
 
 install(DIRECTORY include/privateer DESTINATION include)
 
+option(ENABLE_UFFD "Enable userfaultfd" OFF)
+if (ENABLE_UFFD=ON)
+  target_compile_definitions(privateer-static PRIVATE UFFD)
+  message(STATUS "Configuring with UFFD")
+else()
+  target_compile_definitions(privateer-static PRIVATE SIGACTION)
+  message(STATUS "Configuring with SIGACTION")
+endif()
+
 find_package(MPI)
 
 include(CTest)
 enable_testing()
-add_subdirectory(test_apps)
+#add_subdirectory(test_apps)
 add_subdirectory(test)

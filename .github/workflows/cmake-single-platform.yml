@@ -8,6 +8,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: mpi4py/setup-mpi@v1
+      - name: Install spdlog
+        run: sudo apt install libspdlog-dev
       - name: Clone repo
         run: cd $GITHUB_WORKSPACE
       - name: Install Boost
@@ -26,6 +28,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: mpi4py/setup-mpi@v1
+      - name: Install spdlog
+        run: sudo apt install libspdlog-dev
       - name: Clone repo
         run: cd $GITHUB_WORKSPACE
       - name: Install Boost

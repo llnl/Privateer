@@ -31,8 +31,16 @@
 #include "utility/sha256_hash.hpp"
 #include "utility/file_util.hpp"
 #include "utility/system.hpp"
-#include "utility/sigsegv_handler_dispatcher.hpp"
+
 #include "virtual_memory_manager.hpp"
+
+#ifdef SIGACTION
+#include "utility/sigsegv_handler_dispatcher.hpp"
+#endif
+
+#ifdef UFFD
+#include "utility/UFFD.hpp"
+#endif
 
 namespace fs = std::filesystem;
 
@@ -41,8 +49,8 @@ class Privateer
 public:
   Privateer(int action, const char* base_path){
     if (action != CREATE && action != OPEN){
-    spdlog::error("Privateer: Invalid action");
-    exit(-1);
+      spdlog::error("Privateer: Invalid action");
+      exit(-1);
     }
     if (action == CREATE){
       if (utility::directory_exists(base_path)){ // Do nothing, use existing
@@ -52,7 +60,7 @@ public:
         base_dir_path = std::string(base_path);
         blocks_dir_path = std::string(base_path) + "/" + "blocks";
         stash_dir_path = std::string(base_path) + "/" + "stash";
-        // return;
+        // return; // TODO: uncommented in uffd variant?
       }
       else if (!utility::create_directory(base_path)){
         spdlog::error("Privateer: Error creating base directory at {} - {}", base_path, strerror(errno));
@@ -60,7 +68,7 @@ public:
       }
       init_block_size();
     }
-    
+
     if (action == OPEN && !utility::directory_exists(base_path)){
       spdlog::error("Privateer: Error creating datastore - base directory does not exist, action must be PRIVATEER::CREATE");
       exit(-1);
@@ -69,7 +77,7 @@ public:
     blocks_dir_path = std::string(base_path) + "/" + "blocks";
     stash_dir_path = std::string(base_path) + "/" + "stash";
   }
-  
+
   Privateer(int action, const char* base_path, const char* stash_base_path){
     if (action != CREATE && action != OPEN){
       spdlog::error("Privateer: Invalid action");
@@ -98,7 +106,7 @@ public:
       /* spdlog::error("Privateer: Error creating datastore - stash directory already exists, action must be PRIVATEER::OPEN");
       exit(-1); */
     }
-    
+
     if (action == OPEN && !utility::directory_exists(base_path)){
       spdlog::error("Privateer: Error opening datastore - base directory does not exist, action must be PRIVATEER::CREATE");
       exit(-1);
@@ -109,6 +117,8 @@ public:
   }
 
   ~Privateer(){
+
+    #ifdef SIGACTION
     struct sigaction sa;
     sa.sa_flags = SA_RESETHAND;
     sigemptyset(&sa.sa_mask);
@@ -118,12 +128,22 @@ public:
       exit(-1);
     }
     utility::sigsegv_handler_dispatcher::remove_virtual_memory_manager((uint64_t) vmm->get_region_start_address());
+    #endif
+
+    #ifdef UFFD
+    utility::UFFD::unregister_uffd_region((uint64_t)vmm->get_region_start_address(), vmm->current_region_capacity(), vmm);
+    // std::cout << "Before deleting VMM\n";
+    utility::UFFD::stop_uffd();
+    #endif
+
     delete vmm;
   }
 
   void* create(void* addr, const char* version_metadata_path, size_t region_size, bool allow_overwrite=true){
     std::string version_metadata_full_path = base_dir_path + "/" + version_metadata_path;
     vmm = new virtual_memory_manager(addr, region_size, m_block_size, version_metadata_full_path, blocks_dir_path, stash_dir_path, allow_overwrite);
+
+    #ifdef SIGACTION
     utility::sigsegv_handler_dispatcher::add_virtual_memory_manager((uint64_t) vmm->get_region_start_address(), region_size, vmm);
     struct sigaction sa;
     sa.sa_flags = SA_SIGINFO;
@@ -133,6 +153,13 @@ public:
       spdlog::error("Privateer: sigaction failed");
       exit(-1);
     }
+    #endif
+
+    #ifdef UFFD
+    utility::UFFD::init_uffd();
+    utility::UFFD::register_uffd_region((uint64_t)vmm->get_region_start_address(), vmm->current_region_capacity(), false, vmm);
+    #endif
+
     return vmm->get_region_start_address();
   }
 
@@ -143,7 +170,7 @@ public:
   void* open_read_only(void* addr, const char* version_metadata_path){
     return open(addr, version_metadata_path, true);
   }
-  
+
   void* open_immutable(void* addr, const char* version_metadata_path,  const char* new_version_metadata_path){
     std::string version_metadata_full_path = base_dir_path + "/" + std::string(version_metadata_path);
     std::string new_version_metadata_full_path = base_dir_path + "/" + std::string(new_version_metadata_path);
@@ -188,7 +215,7 @@ public:
     return open(addr, new_version_metadata_path, false);
   }
 
-  void msync(){
+  void msync(){ // TODO: Inline?
     vmm->msync();
   }
 
@@ -198,7 +225,7 @@ public:
   }
 
   size_t get_block_size(){
-    return m_block_size;      
+    return m_block_size;
     // return vmm->get_block_size();
   }
 
@@ -226,6 +253,8 @@ private:
     }
     version_metadata_dir_path = version_metadata_full_path;
     vmm = new virtual_memory_manager(addr, version_metadata_dir_path, stash_dir_path, read_only);
+
+    #ifdef SIGACTION
     utility::sigsegv_handler_dispatcher::add_virtual_memory_manager((uint64_t) vmm->get_region_start_address(), vmm->current_region_capacity(), vmm);
     struct sigaction sa;
     sa.sa_flags = SA_SIGINFO;
@@ -234,7 +263,14 @@ private:
     if (sigaction(SIGSEGV, &sa, NULL) == -1){
       spdlog::error("Privateer: sigaction failed");
       exit(-1);
-    } 
+    }
+    #endif
+
+    #ifdef UFFD
+    utility::UFFD::init_uffd();
+    utility::UFFD::register_uffd_region((uint64_t)vmm->get_region_start_address(), vmm->current_region_capacity(), false, vmm);
+    #endif
+
     return vmm->get_region_start_address();
   }
 

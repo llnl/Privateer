@@ -31,7 +31,6 @@
 #include "utility/sha256_hash.hpp"
 #include "utility/file_util.hpp"
 #include "utility/system.hpp"
-
 #include "virtual_memory_manager.hpp"
 
 #ifdef SIGACTION
@@ -132,7 +131,7 @@ public:
 
     #ifdef UFFD
     utility::UFFD::unregister_uffd_region((uint64_t)vmm->get_region_start_address(), vmm->current_region_capacity(), vmm);
-    // std::cout << "Before deleting VMM\n";
+    // spdlog::info("Before deleting VMM");
     utility::UFFD::stop_uffd();
     #endif
 

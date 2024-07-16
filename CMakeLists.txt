@@ -149,7 +149,7 @@ install(DIRECTORY include/privateer DESTINATION include)
 
 option(ENABLE_UFFD "Enable userfaultfd" OFF)
 if (ENABLE_UFFD)
-  target_compile_definitions(privateer-static PRIVATE UFFD)
+  target_compile_definitions(privateer-static PRIVATE USERFAULTFD)
   message(STATUS "Configuring with UFFD")
 else()
   target_compile_definitions(privateer-static PRIVATE SIGACTION)

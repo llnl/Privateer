@@ -37,7 +37,7 @@
 #include "utility/sigsegv_handler_dispatcher.hpp"
 #endif
 
-#ifdef UFFD
+#ifdef USERFAULTFD
 #include "utility/UFFD.hpp"
 #endif
 
@@ -129,7 +129,7 @@ public:
     utility::sigsegv_handler_dispatcher::remove_virtual_memory_manager((uint64_t) vmm->get_region_start_address());
     #endif
 
-    #ifdef UFFD
+    #ifdef USERFAULTFD
     utility::UFFD::unregister_uffd_region((uint64_t)vmm->get_region_start_address(), vmm->current_region_capacity(), vmm);
     // spdlog::info("Before deleting VMM");
     utility::UFFD::stop_uffd();
@@ -154,7 +154,7 @@ public:
     }
     #endif
 
-    #ifdef UFFD
+    #ifdef USERFAULTFD
     utility::UFFD::init_uffd();
     utility::UFFD::register_uffd_region((uint64_t)vmm->get_region_start_address(), vmm->current_region_capacity(), false, vmm);
     #endif
@@ -265,7 +265,7 @@ private:
     }
     #endif
 
-    #ifdef UFFD
+    #ifdef USERFAULTFD
     utility::UFFD::init_uffd();
     utility::UFFD::register_uffd_region((uint64_t)vmm->get_region_start_address(), vmm->current_region_capacity(), false, vmm);
     #endif

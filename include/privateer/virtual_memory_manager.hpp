@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef SIGACTION
+//#ifdef SIGACTION
 #include <sys/mman.h>
 #include <assert.h>
 #include <sys/time.h>
@@ -23,9 +23,9 @@
 #include <thread>
 #include <mutex>
 #include <omp.h>
-#endif
+//#endif
 
-#ifdef UFFD
+#ifdef USERFAULTFD
 #define _GNU_SOURCE
 #include <linux/userfaultfd.h>
 #include <pthread.h>
@@ -55,10 +55,10 @@ class virtual_memory_manager {
   public:
     virtual_memory_manager(void* start_address, size_t region_max_capacity, size_t block_size,
                            std::string version_metadata_path, std::string blocks_path, std::string stash_path, bool allow_overwrite){
-#ifdef UFFD
-      // printf("Waiting on virtual_memory_manager::handler_mutex_global create Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
-      const std::lock_guard<std::mutex> lock(virtual_memory_manager::handler_mutex_global);
-      // printf("Aquired virtual_memory_manager::handler_mutex_global create Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
+#ifdef USERFAULTFD
+      // printf("Waiting on handler_mutex_global create Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
+      const std::lock_guard<std::mutex> lock(handler_mutex_global);
+      // printf("Aquired handler_mutex_global create Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
       // std::cout << "VMM CREATING\n";
 #endif
 
@@ -69,7 +69,7 @@ class virtual_memory_manager {
         exit(-1);
       }
 
-#ifdef UFFD
+#ifdef USERFAULTFD
       // Set num handling threads
       num_handling_threads = utility::get_environment_variable("NUM_HANDLING_THREADS");
       if (std::isnan(num_handling_threads) || num_handling_threads == 0){
@@ -116,9 +116,10 @@ class virtual_memory_manager {
           // std::cout << "WARNING: region capacity less than block size, setting block size to region capacity" << std::endl;
           m_block_size = region_max_capacity;
           } */
+      }
 #endif
 
-#ifdef UFFD
+#ifdef USERFAULTFD
         // Set block_size
         m_block_size = utility::get_environment_variable("PRIVATEER_BLOCK_SIZE");
         if ( std::isnan(m_block_size) || m_block_size == 0){
@@ -148,7 +149,6 @@ class virtual_memory_manager {
         }
         // std::cout << "m_block_size after check: " << m_block_size << std::endl;
 #endif
-      }
       size_t max_mem_size_blocks = utility::get_environment_variable("PRIVATEER_MAX_MEM_BLOCKS");
       if ( std::isnan((double)max_mem_size_blocks) || max_mem_size_blocks == 0){
         max_mem_size_blocks = MAX_MEM_DEFAULT_BLOCKS;
@@ -171,7 +171,7 @@ class virtual_memory_manager {
         flags |= MAP_FIXED;
       }
 
-#ifdef UFFD
+#ifdef USERFAULTFD
       prot = PROT_READ | PROT_WRITE;
 #endif
 
@@ -202,7 +202,7 @@ class virtual_memory_manager {
 
       m_read_only = false;
 
-#ifdef UFFD
+#ifdef USERFAULTFD
       /* pthread_mutex_init(&handler_mutex, NULL);
 
          if (pipe2(uffd_pipe, 0) < 0){
@@ -243,13 +243,13 @@ class virtual_memory_manager {
       }
       // fault_events_queue = new utility::event_queue<utility::fault_event>(num_handling_threads);
       start_handler_thread();
-      // printf("Releasing virtual_memory_manager::handler_mutex_global create Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
+      // printf("Releasing handler_mutex_global create Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
 #endif
     }
 
     virtual_memory_manager(void* addr, std::string version_metadata_path, std::string stash_path, bool read_only){
-#ifdef UFFD
-      const std::lock_guard<std::mutex> lock(virtual_memory_manager::handler_mutex_global);
+#ifdef USERFAULTFD
+      const std::lock_guard<std::mutex> lock(handler_mutex_global);
       spdlog::info("virtual_memory_manager: Acquired virtual handler_mutex_global, open Thread ID: {}", (uint64_t) syscall(SYS_gettid));
       // std::cout << "VMM OPENING\n";
 
@@ -306,7 +306,7 @@ class virtual_memory_manager {
         mmap_flags |= MAP_FIXED;
       }
 
-#ifdef UFFD
+#ifdef USERFAULTFD
       prot = read_only ? PROT_READ : (PROT_READ | PROT_WRITE);
 #endif
 
@@ -364,7 +364,7 @@ class virtual_memory_manager {
         int dev_null_fd = ::open("/dev/null",O_RDWR);
       }
 
-#ifdef UFFD
+#ifdef USERFAULTFD
       m_read_only = read_only;
 /* pthread_mutex_init(&handler_mutex, NULL);
    uffd_active = true;
@@ -408,7 +408,7 @@ class virtual_memory_manager {
       uffd_active = true;
       // fault_events_queue = new utility::event_queue<utility::fault_event>(num_handling_threads);
       start_handler_thread();
-      // printf("Releasing virtual_memory_manager::handler_mutex_global open Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
+      // printf("Releasing handler_mutex_global open Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
 #endif
     }
     
@@ -418,7 +418,7 @@ class virtual_memory_manager {
         exit(-1);
       }
 
-#ifdef UFFD
+#ifdef USERFAULTFD
       if (munmap(zero_page, m_block_size) == -1){
         std::cerr << "Error unmapping temporary buffer - " << strerror(errno) << std::endl;
         exit(-1);
@@ -687,7 +687,7 @@ void handler(int sig, siginfo_t *si, void *ctx_void_ptr){
     }
 #endif
 
-#ifdef UFFD
+#ifdef USERFAULTFD
 void msync(){
   for (int i = 0 ; i < num_handling_threads; i++){
     msync(i);
@@ -695,7 +695,7 @@ void msync(){
 }
 
 void msync(int sub_region_index){
-  const std::lock_guard<std::mutex> lock(virtual_memory_manager::handler_mutex_global);
+  const std::lock_guard<std::mutex> lock(handler_mutex_global);
   // std::cout << "MSYNC" << std::endl;
   // 1) Write dirty_lru
   // std::cout << "size of dirty LRU: "<< dirty_lru.size() << std::endl;
@@ -787,9 +787,9 @@ void* handler(uint64_t sub_region_index){
     } */
     // printf("THREAD %ld Checking if Queue empty\n", (uint64_t) syscall(SYS_gettid));
     // if (!fault_events_queue->is_empty()){
-      // printf("Waiting on virtual_memory_manager::handler_mutex_global Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
-      // const std::lock_guard<std::mutex> lock(virtual_memory_manager::handler_mutex_global);
-      // printf("Aquired virtual_memory_manager::handler_mutex_global handler Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
+      // printf("Waiting on handler_mutex_global Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
+      // const std::lock_guard<std::mutex> lock(handler_mutex_global);
+      // printf("Aquired handler_mutex_global handler Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
       // if (!fault_events_queue.empty()){
         // Get and assert faulting address
         // printf("Dequeing from thread %ld \n", (uint64_t) syscall(SYS_gettid));
@@ -995,7 +995,7 @@ void* handler(uint64_t sub_region_index){
         // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
         // printf("Handling took: %ld\n", duration.count());
       // }
-      // printf("Releasing virtual_memory_manager::handler_mutex_global handler Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
+      // printf("Releasing handler_mutex_global handler Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
 
       // printf("DONE Handling in VMM from thread %ld for address %ld \n", (uint64_t) syscall(SYS_gettid), fault_address);
     // }
@@ -1117,7 +1117,7 @@ void* handler(uint64_t sub_region_index){
       for (it = present_blocks.begin(); it != present_blocks.end(); ++it) {
 #endif
 
-#ifdef UFFD
+#ifdef USERFAULTFD
         for (int i = 0; i < num_handling_threads; i++){
           for (it = present_blocks[i].begin(); it != present_blocks[i].end(); ++it) {
 #endif
@@ -1129,7 +1129,7 @@ void* handler(uint64_t sub_region_index){
           return -1;
         }
           }
-#ifdef UFFD
+#ifdef USERFAULTFD
         }
 #endif
       delete [] blocks_ids;
@@ -1139,12 +1139,12 @@ void* handler(uint64_t sub_region_index){
       return 0;
     }
 
-#ifdef UFFD
+#ifdef USERFAULTFD
 void set_uffd(uint64_t uffd){
       m_uffd = uffd;
     }
 
-void* handler_helper(void *context){
+static void* handler_helper(void *context){
       // printf("Starting Handler HELPER from %ld\n", (uint64_t) syscall(SYS_gettid));
       int sub_region_index = ((virtual_memory_manager *)context)->get_next_sub_region();
       return ((virtual_memory_manager *)context)->handler(sub_region_index);
@@ -1158,9 +1158,9 @@ uint64_t get_block_address(uint64_t fault_address){
     }
 
 void add_page_fault_event(utility::fault_event fevent){
-      // printf("Waiting on virtual_memory_manager::add_event_mutex Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
-      // const std::lock_guard<std::mutex> lock(virtual_memory_manager::add_event_mutex);
-      // printf("Aquired virtual_memory_manager::add_event_mutex Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
+      // printf("Waiting on add_event_mutex Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
+      // const std::lock_guard<std::mutex> lock(add_event_mutex);
+      // printf("Aquired add_event_mutex Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
       // printf("Page Fault Event Added to queue for address %ld\n", fevent.address);
       uint64_t start_address = (uint64_t) m_region_start_address;
       uint64_t block_index = (fevent.address - start_address) / m_block_size;
@@ -1176,7 +1176,7 @@ void add_page_fault_event(utility::fault_event fevent){
       // auto stop = std::chrono::high_resolution_clock::now();
       // auto add_time = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
       // printf("Adding to queue took: %ld\n", add_time.count());
-      // printf("Releasing virtual_memory_manager::add_event_mutex Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
+      // printf("Releasing add_event_mutex Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
     }
 
     void add_page_fault_event_all(utility::fault_event fevent){
@@ -1189,7 +1189,7 @@ void add_page_fault_event(utility::fault_event fevent){
       // std::cout << "Starting handler thread in VMM";
       for (int i = 0; i < num_handling_threads; i++){
         pthread_t fault_handling_thread;
-        int status = pthread_create(&fault_handling_thread, NULL, virtual_memory_manager::handler_helper, (void*) this);
+        int status = pthread_create(&fault_handling_thread, NULL, handler_helper, (void*) this);
         if (status != 0){
           std::cerr << "VMM: Error pthread_create - " << strerror(status) << std::endl;
           exit(-1);
@@ -1256,7 +1256,7 @@ void add_page_fault_event(utility::fault_event fevent){
     std::mutex sig_handler_mutex;
 #endif
 
-#ifdef UFFD
+#ifdef USERFAULTFD
 int prot;
     std::vector<std::list<uint64_t>> clean_lru; // Change to sub-regions (declaration [done], usage [done])
     std::vector<std::list<uint64_t>> dirty_lru; // Change to sub-regions (declaration [done], usage [done])
@@ -1283,7 +1283,6 @@ int prot;
     std::mutex* blocks_locks;
     std::mutex add_event_mutex;
     pthread_mutex_t handler_mutex;
-    static std::mutex handler_mutex_global;
     long m_uffd;
     std::atomic<bool> uffd_active;
     int uffd_pipe[2];
@@ -1342,8 +1341,8 @@ int prot;
     }
 #endif
 
-#ifdef UFFD
-void virtual_memory_manager::evict_if_needed(int sub_region_index){
+#ifdef USERFAULTFD
+void evict_if_needed(int sub_region_index){
   void* to_evict;
   if ((present_blocks[sub_region_index].size()*m_block_size) >= m_max_mem_size){
     // std::cout << "EVICTING" << std::endl;
@@ -1390,9 +1389,9 @@ void virtual_memory_manager::evict_if_needed(int sub_region_index){
       size_t max_address = *present_blocks.rbegin();
 #endif
 
-#ifdef UFFD
+#ifdef USERFAULTFD
 void update_metadata(int sub_region_index){
-  // const std::lock_guard<std::mutex> lock(virtual_memory_manager::handler_mutex_global);
+  // const std::lock_guard<std::mutex> lock(handler_mutex_global);
   // std::cout << "present_blocks.size(): " << present_blocks.size() << std::endl;
   if (present_blocks[sub_region_index].size() == 0){
     return;

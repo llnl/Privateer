@@ -351,6 +351,7 @@ class block_storage
         spdlog::error("block_storage: Blocks directory already exists");
         exit(-1);
       } */
+      spdlog::info("block_storage: create() done");
     }
 
     void open(std::string base_directory_path, std::string stash_directory_path){

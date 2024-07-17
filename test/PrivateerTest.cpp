@@ -37,7 +37,7 @@ class PrivateerTest : public testing::TestWithParam<std::tuple<size_t, size_t, s
       strcat(env, block_num);
       putenv(env);
 
-/*
+//*
       // uffd env var
       putenv("PRIVATEER_BLOCK_SIZE=2097152");
 //*/

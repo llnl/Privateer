@@ -46,7 +46,21 @@ namespace fs = std::filesystem;
 class Privateer
 {
 public:
-  Privateer(int action, const char* base_path){
+  /**
+   * @brief Construct a new Privateer object
+   * 
+   * @param action 
+   * @param base_path 
+   */
+    Privateer(int action, const char* base_path){
+#ifdef SIGACTION
+      spdlog::info("Creating with SIGACTION");
+#endif
+
+#ifdef USERFAULTFD
+      spdlog::info("Creating with USERFAULTFD");
+#endif
+
     if (action != CREATE && action != OPEN){
       spdlog::error("Privateer: Invalid action");
       exit(-1);
@@ -77,6 +91,13 @@ public:
     stash_dir_path = std::string(base_path) + "/" + "stash";
   }
 
+  /**
+   * @brief Construct a new Privateer object with a specified stash path
+   * 
+   * @param action 
+   * @param base_path 
+   * @param stash_base_path 
+   */
   Privateer(int action, const char* base_path, const char* stash_base_path){
     if (action != CREATE && action != OPEN){
       spdlog::error("Privateer: Invalid action");
@@ -115,6 +136,10 @@ public:
     stash_dir_path = std::string(stash_base_path) + "/" + "stash";
   }
 
+  /**
+   * @brief Destroy the Privateer object
+   * 
+   */
   ~Privateer(){
 
     #ifdef SIGACTION
@@ -138,6 +163,15 @@ public:
     delete vmm;
   }
 
+  /**
+   * @brief Create a Privateer datastore
+   * 
+   * @param addr 
+   * @param version_metadata_path 
+   * @param region_size 
+   * @param allow_overwrite 
+   * @return void* 
+   */
   void* create(void* addr, const char* version_metadata_path, size_t region_size, bool allow_overwrite=true){
     std::string version_metadata_full_path = base_dir_path + "/" + version_metadata_path;
     vmm = new virtual_memory_manager(addr, region_size, m_block_size, version_metadata_full_path, blocks_dir_path, stash_dir_path, allow_overwrite);
@@ -161,15 +195,37 @@ public:
 
     return vmm->get_region_start_address();
   }
-
+  /**
+   * @brief Open an existing Privateer datastore
+   * 
+   * @param addr 
+   * @param version_metadata_path 
+   * @return void* 
+   */
   void* open(void* addr, const char* version_metadata_path){
     return open(addr, version_metadata_path, false);
   }
 
+/**
+ * @brief Open an existing Privateer datastore with read-only permission
+ * 
+ * @param addr 
+ * @param version_metadata_path 
+ * @return void* 
+ */
   void* open_read_only(void* addr, const char* version_metadata_path){
     return open(addr, version_metadata_path, true);
   }
 
+/**
+ * @brief Open an existing Privateer datastore without modifying
+ * the original datastore. A copy is made similar to snapshot().
+ * 
+ * @param addr 
+ * @param version_metadata_path 
+ * @param new_version_metadata_path 
+ * @return void* 
+ */
   void* open_immutable(void* addr, const char* version_metadata_path,  const char* new_version_metadata_path){
     std::string version_metadata_full_path = base_dir_path + "/" + std::string(version_metadata_path);
     std::string new_version_metadata_full_path = base_dir_path + "/" + std::string(new_version_metadata_path);
@@ -214,24 +270,52 @@ public:
     return open(addr, new_version_metadata_path, false);
   }
 
+  /**
+   * @brief Commit changes to datastore
+   * 
+   */
   void msync(){ // TODO: Inline?
     vmm->msync();
   }
 
+  /**
+   * @brief Commit changes and takes a snapshot of current changes made so far
+   * 
+   * @param version_metadata_path 
+   * @return true 
+   * @return false 
+   */
   bool snapshot(const char* version_metadata_path){
     std::string version_metadata_full_path = base_dir_path + "/" + version_metadata_path;
     return vmm->snapshot(version_metadata_full_path.c_str());
   }
 
+/**
+ * @brief Get the block size object
+ * 
+ * @return size_t 
+ */
   size_t get_block_size(){
     return m_block_size;
     // return vmm->get_block_size();
   }
 
+/**
+ * @brief Get the start address of a datastore region
+ * 
+ * @return void* 
+ */
   void* data(){
     return vmm->get_region_start_address();
   }
 
+/**
+ * @brief Check version metadata
+ * 
+ * @param version_metadata_path 
+ * @return true 
+ * @return false 
+ */
   bool version_exists(const char* version_metadata_path){
     std::string version_full_path = base_dir_path + "/" + version_metadata_path;
     return utility::directory_exists(version_full_path.c_str());
@@ -245,6 +329,14 @@ public:
 
 private:
   void* open(void* addr, const char *version_metadata_path, bool read_only){
+#ifdef SIGACTION
+      spdlog::info("Opening with SIGACTION");
+#endif
+
+#ifdef USERFAULTFD
+      spdlog::info("Opening with USERFAULTFD");
+#endif
+
     std::string version_metadata_full_path = base_dir_path + "/" + std::string(version_metadata_path);
     if(!utility::directory_exists(version_metadata_full_path.c_str())){
       spdlog::error("Privateer: Directory {} does not exist", version_metadata_full_path);

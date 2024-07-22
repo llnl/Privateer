@@ -29,6 +29,7 @@ class PrivateerTest : public testing::TestWithParam<std::tuple<size_t, size_t, s
     size_t* data;
 
     void SetUp() override {
+      spdlog::set_level(spdlog::level::trace);
       //spdlog::set_pattern("{\"id\":\"\",\"name\":\"%^%v%$\",\t\"cat\":\"CPP_APP\",\"pid\":\"%P\",\"tid\":\"%t\",\"ts\":\"%S%F\",\"dur\":\"\",\"ph\":\"X\",\"args\":{}}");
 
       char env[] = "PRIVATEER_MAX_MEM_BLOCKS=";
@@ -116,6 +117,7 @@ TEST_P(PrivateerTest, SimpleWrite) {
 
 TEST_P(PrivateerTest, SimpleDenseWrite) {
   for (size_t i = 0; i < this->num_ints; i++) {
+    SPDLOG_TRACE("PrivateerTest: int - {}, val - {}", i, this->data[i]);
     this->data[i] = i;
   }
   priv->msync();
@@ -124,10 +126,8 @@ TEST_P(PrivateerTest, SimpleDenseWrite) {
   priv = new Privateer(Privateer::OPEN, "datastore");
   this->data = (size_t*) priv->open_read_only(nullptr, "v0");
   for (size_t i = 0; i < this->num_ints; i++) {
+    SPDLOG_TRACE("PrivateerTest: int - {}, val - {} EXPECT_EQ", i, this->data[i]);
     EXPECT_EQ(this->data[i], i);
-#ifdef ENABLE_LOGGING
-    //spdlog::info("Wrote block address: {}", this->data[i]);
-#endif
   }
 }
 
@@ -189,30 +189,40 @@ TEST_P(PrivateerTest, SortWrite) {
 
 TEST_P(PrivateerTest, MultipleWrite) {
   for (size_t i = 0; i < this->num_ints; i++) {
+      SPDLOG_TRACE("PrivateerTest: int - {}, val - {}", i, this->data[i]);
     this->data[i] = i;
   }
+
+  priv->msync();
 
   int num_iterations = std::get<2>(GetParam());
   for (size_t k = 0; k < num_iterations; k++) {
     delete priv;
+    SPDLOG_TRACE("PrivateerTest: iteration - {}", k);
     priv = new Privateer(Privateer::OPEN, "datastore");
-    this->data = (size_t*) priv->open_read_only(nullptr, "v0");
+    this->data = (size_t*) priv->open(nullptr, "v0");
+    spdlog::info("PrivateerTest: opened datastore");
     for (size_t i = 0; i < this->num_ints; i++) {
+      SPDLOG_TRACE("PrivateerTest: int - {}, val - {} EXPECT_EQ", i, this->data[i]);
       EXPECT_EQ(this->data[i], i);
     }
+      SPDLOG_TRACE("PrivateerTest: EXPECT_EQ done");
     for (size_t i = 0; i < this->num_ints; i++) {
+      SPDLOG_TRACE("PrivateerTest: int - {}, val - {}", i, this->data[i]);
       this->data[i] = (this->num_ints - 1) - i;
     }
     priv->msync();
     delete priv;
 
     priv = new Privateer(Privateer::OPEN, "datastore");
-    this->data = (size_t*) priv->open  (nullptr, "v0");
+    this->data = (size_t*) priv->open(nullptr, "v0");
     for (size_t i = 0; i < this->num_ints; i++) {
+      SPDLOG_TRACE("PrivateerTest: int - {}, val - {} EXPECT_EQ", i, this->data[i]);
       EXPECT_EQ(this->data[i], (this->num_ints - 1) - i);
     }
     for (size_t i = 0; i < this->num_ints; i++) {
       this->data[i] = i;
+      SPDLOG_TRACE("PrivateerTest: int - {}, val - {}", i, this->data[i]);
     }
     priv->msync();
   }
@@ -225,11 +235,13 @@ TEST_P(PrivateerTest, MultipleWrite_Threaded) {
     this->data[i] = i;
   }
 
+  priv->msync();
+
   int num_iterations = std::get<2>(GetParam());
   for (size_t k = 0; k < num_iterations; k++) {
     delete priv;
     priv = new Privateer(Privateer::OPEN, "datastore");
-    this->data = (size_t*) priv->open_read_only(nullptr, "v0");
+    this->data = (size_t*) priv->open(nullptr, "v0");
 #pragma omp for
     for (size_t i = 0; i < this->num_ints; i++) {
       EXPECT_EQ(this->data[i], i);
@@ -250,6 +262,51 @@ TEST_P(PrivateerTest, MultipleWrite_Threaded) {
 #pragma omp for
     for (size_t i = 0; i < this->num_ints; i++) {
       this->data[i] = i;
+    }
+    priv->msync();
+  }
+}
+
+TEST_P(PrivateerTest, MultipleWriteSparse) {
+  size_t num_threads = std::get<4>(GetParam());
+  //size_t int_iter = std::get<2>(GetParam());
+  size_t int_iter = this->num_ints;
+  for (size_t i = 0; i < int_iter; i++) {
+    this->data[i] = i / num_threads + (i % num_threads) * (this->num_ints / num_threads);
+    //spdlog::info("Wrote to block address: {}", this->data[i] * sizeof(size_t));
+  }
+  priv->msync();
+
+  int num_iterations = std::get<2>(GetParam());
+  for (size_t k = 0; k < num_iterations; k++) {
+      spdlog::info("Iteration: {}", k);
+    delete priv;
+    priv = new Privateer(Privateer::OPEN, "datastore");
+    this->data = (size_t*) priv->open(nullptr, "v0");
+/*
+#pragma omp parallel for
+    for (size_t i = 0; i < int_iter; i++) {
+      EXPECT_EQ(this->data[i], i / num_threads + (i % num_threads) * (this->num_ints / num_threads));
+    }
+    //*/
+    for (size_t i = 0; i < int_iter; i++) {
+      this->data[i] = ((this->num_ints - 1) - i) / num_threads + (((this->num_ints - 1) - i) % num_threads) * (this->num_ints / num_threads);
+      //spdlog::info("Wrote to block address: {}", this->data[i] * sizeof(size_t));
+    }
+    priv->msync();
+    delete priv;
+
+    priv = new Privateer(Privateer::OPEN, "datastore");
+    this->data = (size_t*) priv->open  (nullptr, "v0");
+/*
+#pragma omp parallel for
+    for (size_t i = 0; i < int_iter; i++) {
+      EXPECT_EQ(this->data[i], ((this->num_ints - 1) - i) / num_threads + (((this->num_ints - 1) - i) % num_threads) * (this->num_ints / num_threads));
+    }
+    //*/
+    for (size_t i = 0; i < int_iter; i++) {
+      this->data[i] = i / num_threads + (i % num_threads) * (this->num_ints / num_threads);;
+      //spdlog::info("Wrote to block address: {}", this->data[i] * sizeof(size_t));
     }
     priv->msync();
   }
@@ -263,20 +320,16 @@ TEST_P(PrivateerTest, MultipleWriteSparse_Threaded) {
 #pragma omp parallel for
   for (size_t i = 0; i < int_iter; i++) {
     this->data[i] = i / num_threads + (i % num_threads) * (this->num_ints / num_threads);
-#ifdef ENABLE_LOGGING
     //spdlog::info("Wrote to block address: {}", this->data[i] * sizeof(size_t));
-#endif
   }
   priv->msync();
 
   int num_iterations = std::get<2>(GetParam());
   for (size_t k = 0; k < num_iterations; k++) {
-#ifdef ENABLE_LOGGING
       spdlog::info("Iteration: {}", k);
-#endif
     delete priv;
     priv = new Privateer(Privateer::OPEN, "datastore");
-    this->data = (size_t*) priv->open_read_only(nullptr, "v0");
+    this->data = (size_t*) priv->open(nullptr, "v0");
 /*
 #pragma omp parallel for
     for (size_t i = 0; i < int_iter; i++) {
@@ -286,9 +339,7 @@ TEST_P(PrivateerTest, MultipleWriteSparse_Threaded) {
 #pragma omp parallel for
     for (size_t i = 0; i < int_iter; i++) {
       this->data[i] = ((this->num_ints - 1) - i) / num_threads + (((this->num_ints - 1) - i) % num_threads) * (this->num_ints / num_threads);
-#ifdef ENABLE_LOGGING
       //spdlog::info("Wrote to block address: {}", this->data[i] * sizeof(size_t));
-#endif
     }
     priv->msync();
     delete priv;
@@ -304,9 +355,7 @@ TEST_P(PrivateerTest, MultipleWriteSparse_Threaded) {
 #pragma omp parallel for
     for (size_t i = 0; i < int_iter; i++) {
       this->data[i] = i / num_threads + (i % num_threads) * (this->num_ints / num_threads);;
-#ifdef ENABLE_LOGGING
       //spdlog::info("Wrote to block address: {}", this->data[i] * sizeof(size_t));
-#endif
     }
     priv->msync();
   }
@@ -321,6 +370,7 @@ TEST_P(PrivateerTest, IncrementalRandomSparseWrite) {
     for (auto offset : offsets) {
     EXPECT_GE(offset, 0);
     EXPECT_LT(offset, this->num_ints);
+    SPDLOG_TRACE("PrivateerTest: offset - {}", offset);
       data[offset] += 1;
     }
     priv->msync();
@@ -421,9 +471,7 @@ TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot_Threaded) {
   for (offset_iterator = random_indices_first_half.begin(); offset_iterator <= random_indices_first_half.end(); ++offset_iterator){
     EXPECT_GE(*offset_iterator, 0);
     EXPECT_LT(*offset_iterator, this->num_ints);
-#ifdef ENABLE_LOGGING
       spdlog::info("Faulted on block address: {}", *offset_iterator);
-#endif
     this->data[*offset_iterator] += 1;
   }
   this->priv->msync();
@@ -439,9 +487,7 @@ TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot_Threaded) {
     for (offset_iterator = random_indices.begin(); offset_iterator < random_indices.end(); ++offset_iterator){
       EXPECT_GE(*offset_iterator, 0);
       EXPECT_LT(*offset_iterator, this->num_ints);
-#ifdef ENABLE_LOGGING
       spdlog::info("Faulted on block address: {}", *offset_iterator);
-#endif
       this->data[*offset_iterator] += 1;
     }
 
@@ -537,7 +583,7 @@ TEST_P(PrivateerTest, LowerBoundOutOfRange) {
       this->data[-1] = 1;
     }, "Fault address out of range");
 }
-/*
+
 TEST_P(PrivateerTest, UpperBoundOutOfRange) {
   std::cout << "num_ints: " << this->num_ints << std::endl;
   std::cout << "size_bytes: " << this->size_bytes << std::endl;
@@ -559,7 +605,7 @@ TEST_P(PrivateerTest, ReadOnly) {
       this->data[0] = 1;
     }, "");
 }
-*/
+
 #ifdef USE_COMPRESSION
 TEST_P(PrivateerTest, SimpleCompressionTest) {
   for (size_t i = 0; i < this->num_ints; i++) {

@@ -54,11 +54,11 @@ public:
    */
     Privateer(int action, const char* base_path){
 #ifdef SIGACTION
-      spdlog::info("Creating with SIGACTION");
+      spdlog::info("Privateer: Constructor with SIGACTION");
 #endif
 
 #ifdef USERFAULTFD
-      spdlog::info("Creating with USERFAULTFD");
+      spdlog::info("Privateer: Constructor with USERFAULTFD");
 #endif
 
     if (action != CREATE && action != OPEN){
@@ -99,6 +99,13 @@ public:
    * @param stash_base_path 
    */
   Privateer(int action, const char* base_path, const char* stash_base_path){
+ #ifdef SIGACTION
+      spdlog::info("Privateer: Constructor (with stash path) with SIGACTION");
+#endif
+
+#ifdef USERFAULTFD
+      spdlog::info("Privateer: Constructor (with stash path) with USERFAULTFD");
+#endif
     if (action != CREATE && action != OPEN){
       spdlog::error("Privateer: Invalid action");
     exit(-1);
@@ -141,7 +148,7 @@ public:
    * 
    */
   ~Privateer(){
-
+      spdlog::info("Privateer: Destructor");
     #ifdef SIGACTION
     struct sigaction sa;
     sa.sa_flags = SA_RESETHAND;
@@ -161,6 +168,7 @@ public:
     #endif
 
     delete vmm;
+      spdlog::info("Privateer: Destructor - done");
   }
 
   /**
@@ -172,7 +180,8 @@ public:
    * @param allow_overwrite 
    * @return void* 
    */
-  void* create(void* addr, const char* version_metadata_path, size_t region_size, bool allow_overwrite=true){
+    void* create(void* addr, const char* version_metadata_path, size_t region_size, bool allow_overwrite){
+      spdlog::info("Privateer: create()");
     std::string version_metadata_full_path = base_dir_path + "/" + version_metadata_path;
     vmm = new virtual_memory_manager(addr, region_size, m_block_size, version_metadata_full_path, blocks_dir_path, stash_dir_path, allow_overwrite);
 
@@ -203,6 +212,7 @@ public:
    * @return void* 
    */
   void* open(void* addr, const char* version_metadata_path){
+    spdlog::info("Privateer: open()");
     return open(addr, version_metadata_path, false);
   }
 
@@ -214,6 +224,7 @@ public:
  * @return void* 
  */
   void* open_read_only(void* addr, const char* version_metadata_path){
+    spdlog::info("Privateer: open_read_only()");
     return open(addr, version_metadata_path, true);
   }
 
@@ -227,6 +238,7 @@ public:
  * @return void* 
  */
   void* open_immutable(void* addr, const char* version_metadata_path,  const char* new_version_metadata_path){
+    spdlog::info("Privateer: open_immutable()");
     std::string version_metadata_full_path = base_dir_path + "/" + std::string(version_metadata_path);
     std::string new_version_metadata_full_path = base_dir_path + "/" + std::string(new_version_metadata_path);
     // Check if datastore exist
@@ -275,6 +287,7 @@ public:
    * 
    */
   void msync(){ // TODO: Inline?
+    spdlog::info("Privateer: msync()");
     vmm->msync();
   }
 
@@ -388,7 +401,7 @@ private:
       /* if (m_block_size % pagesize != 0){
          spdlog::error("Privateer: block_size must be multiple of system page size ({})", pagesize);
          exit(-1);
-      } */
+         } */
     }
   }
 

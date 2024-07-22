@@ -31,8 +31,6 @@ endif()
 
 #if (ENABLE_SPDLOG)
   target_link_libraries(PrivateerTest PUBLIC spdlog::spdlog)
-
-  target_compile_definitions(PrivateerTest PRIVATE ENABLE_LOGGING)
 #endif()
 
 if (ENABLE_UFFD)

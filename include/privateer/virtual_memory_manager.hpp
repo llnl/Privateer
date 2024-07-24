@@ -72,14 +72,14 @@ class virtual_memory_manager {
       if (std::isnan(num_handling_threads) || num_handling_threads == 0){
         num_handling_threads = NUM_HANDLING_THREADS_DEFAULT;
       }
-      // std::cout << "num_handling_threads: " << num_handling_threads << std::endl;
+      spdlog::info("num_handling_threads: {}", num_handling_threads);
 
       // Set num msync threads
       num_msync_threads = utility::get_environment_variable("NUM_MSYNC_THREADS");
       if (std::isnan(num_msync_threads) || num_msync_threads == 0){
         num_msync_threads = NUM_MSYNC_THREADS_DEFAULT;
       }
-      // std::cout << "num_msync_threads: " << num_msync_threads << std::endl;
+      spdlog::info("num_msync_threads: {}", num_msync_threads);
 #endif
 
       /* if (region_max_capacity % num_blocks == 0){
@@ -533,6 +533,18 @@ class virtual_memory_manager {
         int dev_null_fd = ::open("/dev/null",O_RDWR);
       }
       spdlog::info("virtual_memory_manager: msync() - done");
+
+      struct uffdio_writeprotect uffdio_writeprotect;
+      uffdio_writeprotect.range.len = (uint64_t) m_block_size;
+      uffdio_writeprotect.mode = 0;
+      for (auto dirty_lru_iterator = dirty_lru_vector.begin(); dirty_lru_iterator != dirty_lru_vector.end(); ++dirty_lru_iterator){
+        void* block_address = (void*) *dirty_lru_iterator;
+        uffdio_writeprotect.range.start = (uint64_t) block_address;
+        if (ioctl(m_uffd, UFFDIO_WRITEPROTECT, &uffdio_writeprotect) == -1){
+          spdlog::error("virtual_memory_manager: msync() - Error ioctl-UFFDIO_WRITEPROTECT - {}", strerror(errno));
+          exit(-1);
+        }
+      }
     }
 
 #ifdef SIGACTION

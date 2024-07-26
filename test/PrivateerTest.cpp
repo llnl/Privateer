@@ -403,9 +403,10 @@ TEST_P(PrivateerTest, SimpleSnapshot) {
   }
   priv->msync();
   for (int j = 1; j <= num_iterations; ++j){
-  spdlog::info("iteration: {}", j);
+    spdlog::info("iteration: {}", j);
     for (size_t k = 1; k < this->num_ints; k+=2) {
       this->data[k]++;
+      EXPECT_EQ(data[k], j);
     }
     priv->snapshot(("v" + std::to_string(j)).c_str());
   }
@@ -496,7 +497,7 @@ TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot_Threaded) {
     EXPECT_TRUE(priv->snapshot(("v" + std::to_string(i)).c_str()));
   }
 }
-/*
+
 TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot_Skewed_Threaded) {
   int num_iterations = std::get<2>(GetParam());
   size_t update_ratio = std::get<3>(GetParam());
@@ -539,7 +540,7 @@ TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot_Skewed_Threaded) {
     EXPECT_TRUE(priv->snapshot(("v" + std::to_string(i)).c_str()));
   }
 }
-*/
+
 TEST(PrivateerTest_Concurrent, ConcurrentWrite) {
   size_t size_bytes = 1024LLU;
   size_t num_ints = size_bytes / sizeof(size_t);
@@ -597,12 +598,14 @@ TEST_P(PrivateerTest, UpperBoundOutOfRange) {
 
 TEST_P(PrivateerTest, ReadOnly) {
   this->data[0] = 7;
+  spdlog::info("Read op");
+  EXPECT_EQ(this->data[0], 7);
   priv->msync();
   delete priv;
 
   priv = new Privateer(Privateer::OPEN, "datastore");
   this->data = (size_t*) priv->open_read_only(nullptr, "v0");
-
+  spdlog::info("Write op");
   EXPECT_DEATH({
       this->data[0] = 1;
     }, "");

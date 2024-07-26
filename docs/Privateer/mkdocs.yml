@@ -1,0 +1,7 @@
+site_name: Privateer
+theme: readthedocs
+
+
+nav:
+  - Home: index.md
+  - About: about.md

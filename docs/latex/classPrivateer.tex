@@ -1,0 +1,251 @@
+\hypertarget{classPrivateer}{}\doxysection{Privateer Class Reference}
+\label{classPrivateer}\index{Privateer@{Privateer}}
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{classPrivateer_af94d053a7546cd43d6f81ce62adcfd48}{Privateer}} (int action, const char $\ast$base\+\_\+path)
+\begin{DoxyCompactList}\small\item\em Construct a new \mbox{\hyperlink{classPrivateer}{Privateer}} object. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{classPrivateer_ade43ba3ac468e5e887acab245fa86647}{Privateer}} (int action, const char $\ast$base\+\_\+path, const char $\ast$stash\+\_\+base\+\_\+path)
+\begin{DoxyCompactList}\small\item\em Construct a new \mbox{\hyperlink{classPrivateer}{Privateer}} object with a specified stash path. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classPrivateer_a85baf60b1b850743ee8c51d3ad8c0486}\label{classPrivateer_a85baf60b1b850743ee8c51d3ad8c0486}} 
+\mbox{\hyperlink{classPrivateer_a85baf60b1b850743ee8c51d3ad8c0486}{$\sim$\+Privateer}} ()
+\begin{DoxyCompactList}\small\item\em Destroy the \mbox{\hyperlink{classPrivateer}{Privateer}} object. \end{DoxyCompactList}\item 
+void $\ast$ \mbox{\hyperlink{classPrivateer_a51dcd408e91686f825acbf96175f701f}{create}} (void $\ast$addr, const char $\ast$version\+\_\+metadata\+\_\+path, size\+\_\+t region\+\_\+size, bool allow\+\_\+overwrite)
+\begin{DoxyCompactList}\small\item\em Create a \mbox{\hyperlink{classPrivateer}{Privateer}} datastore. \end{DoxyCompactList}\item 
+void $\ast$ \mbox{\hyperlink{classPrivateer_a4538f75afc97d558265b3039f7de7ed6}{open}} (void $\ast$addr, const char $\ast$version\+\_\+metadata\+\_\+path)
+\begin{DoxyCompactList}\small\item\em Open an existing \mbox{\hyperlink{classPrivateer}{Privateer}} datastore. \end{DoxyCompactList}\item 
+void $\ast$ \mbox{\hyperlink{classPrivateer_a31085aa0fb30f68e6a0b90c6c59d7fa1}{open\+\_\+read\+\_\+only}} (void $\ast$addr, const char $\ast$version\+\_\+metadata\+\_\+path)
+\begin{DoxyCompactList}\small\item\em Open an existing \mbox{\hyperlink{classPrivateer}{Privateer}} datastore with read-\/only permission. \end{DoxyCompactList}\item 
+void $\ast$ \mbox{\hyperlink{classPrivateer_ae8a6d2dd06e7d1b996171e48dc377742}{open\+\_\+immutable}} (void $\ast$addr, const char $\ast$version\+\_\+metadata\+\_\+path, const char $\ast$new\+\_\+version\+\_\+metadata\+\_\+path)
+\begin{DoxyCompactList}\small\item\em Open an existing \mbox{\hyperlink{classPrivateer}{Privateer}} datastore without modifying the original datastore. A copy is made similar to \mbox{\hyperlink{classPrivateer_a193b472c293e05daef2011a1c0f2388d}{snapshot()}}. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classPrivateer_a51bfc6fd6ee5f811feea9beb3348d5cb}\label{classPrivateer_a51bfc6fd6ee5f811feea9beb3348d5cb}} 
+void \mbox{\hyperlink{classPrivateer_a51bfc6fd6ee5f811feea9beb3348d5cb}{msync}} ()
+\begin{DoxyCompactList}\small\item\em Commit changes to datastore. \end{DoxyCompactList}\item 
+bool \mbox{\hyperlink{classPrivateer_a193b472c293e05daef2011a1c0f2388d}{snapshot}} (const char $\ast$version\+\_\+metadata\+\_\+path)
+\begin{DoxyCompactList}\small\item\em Commit changes and takes a snapshot of current changes made so far. \end{DoxyCompactList}\item 
+size\+\_\+t \mbox{\hyperlink{classPrivateer_acaffd80a45c58567c531971bccd4ca3e}{get\+\_\+block\+\_\+size}} ()
+\begin{DoxyCompactList}\small\item\em Get the block size object. \end{DoxyCompactList}\item 
+void $\ast$ \mbox{\hyperlink{classPrivateer_adf650350a471d2604ec0e8cf266f3a30}{data}} ()
+\begin{DoxyCompactList}\small\item\em Get the start address of a datastore region. \end{DoxyCompactList}\item 
+bool \mbox{\hyperlink{classPrivateer_ab51659e181b6dee368542642ac5404c5}{version\+\_\+exists}} (const char $\ast$version\+\_\+metadata\+\_\+path)
+\begin{DoxyCompactList}\small\item\em Check version metadata. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classPrivateer_a6007b4b60aefa287821357732d4f8a56}\label{classPrivateer_a6007b4b60aefa287821357732d4f8a56}} 
+size\+\_\+t {\bfseries region\+\_\+size} ()
+\end{DoxyCompactItemize}
+\doxysubsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classPrivateer_a490ca2438e5224dadae7905a20b93727}\label{classPrivateer_a490ca2438e5224dadae7905a20b93727}} 
+static size\+\_\+t {\bfseries version\+\_\+capacity} (std\+::string version\+\_\+path)
+\item 
+\mbox{\Hypertarget{classPrivateer_a7cec1266bc4cdd6eee3edb04240cc0df}\label{classPrivateer_a7cec1266bc4cdd6eee3edb04240cc0df}} 
+static size\+\_\+t {\bfseries version\+\_\+block\+\_\+size} (std\+::string version\+\_\+path)
+\end{DoxyCompactItemize}
+\doxysubsection*{Static Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classPrivateer_ac7bda9f96d74e460062735a911429198}\label{classPrivateer_ac7bda9f96d74e460062735a911429198}} 
+static const int {\bfseries CREATE} = 0
+\item 
+\mbox{\Hypertarget{classPrivateer_a3e79f9bc54fd21480ea223ef605ca459}\label{classPrivateer_a3e79f9bc54fd21480ea223ef605ca459}} 
+static const int {\bfseries OPEN} = 1
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Constructor \& Destructor Documentation}
+\mbox{\Hypertarget{classPrivateer_af94d053a7546cd43d6f81ce62adcfd48}\label{classPrivateer_af94d053a7546cd43d6f81ce62adcfd48}} 
+\index{Privateer@{Privateer}!Privateer@{Privateer}}
+\index{Privateer@{Privateer}!Privateer@{Privateer}}
+\doxysubsubsection{\texorpdfstring{Privateer()}{Privateer()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily Privateer\+::\+Privateer (\begin{DoxyParamCaption}\item[{int}]{action,  }\item[{const char $\ast$}]{base\+\_\+path }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Construct a new \mbox{\hyperlink{classPrivateer}{Privateer}} object. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em action} & \\
+\hline
+{\em base\+\_\+path} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{classPrivateer_ade43ba3ac468e5e887acab245fa86647}\label{classPrivateer_ade43ba3ac468e5e887acab245fa86647}} 
+\index{Privateer@{Privateer}!Privateer@{Privateer}}
+\index{Privateer@{Privateer}!Privateer@{Privateer}}
+\doxysubsubsection{\texorpdfstring{Privateer()}{Privateer()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily Privateer\+::\+Privateer (\begin{DoxyParamCaption}\item[{int}]{action,  }\item[{const char $\ast$}]{base\+\_\+path,  }\item[{const char $\ast$}]{stash\+\_\+base\+\_\+path }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Construct a new \mbox{\hyperlink{classPrivateer}{Privateer}} object with a specified stash path. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em action} & \\
+\hline
+{\em base\+\_\+path} & \\
+\hline
+{\em stash\+\_\+base\+\_\+path} & \\
+\hline
+\end{DoxyParams}
+
+
+\doxysubsection{Member Function Documentation}
+\mbox{\Hypertarget{classPrivateer_a51dcd408e91686f825acbf96175f701f}\label{classPrivateer_a51dcd408e91686f825acbf96175f701f}} 
+\index{Privateer@{Privateer}!create@{create}}
+\index{create@{create}!Privateer@{Privateer}}
+\doxysubsubsection{\texorpdfstring{create()}{create()}}
+{\footnotesize\ttfamily void$\ast$ Privateer\+::create (\begin{DoxyParamCaption}\item[{void $\ast$}]{addr,  }\item[{const char $\ast$}]{version\+\_\+metadata\+\_\+path,  }\item[{size\+\_\+t}]{region\+\_\+size,  }\item[{bool}]{allow\+\_\+overwrite }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Create a \mbox{\hyperlink{classPrivateer}{Privateer}} datastore. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em addr} & \\
+\hline
+{\em version\+\_\+metadata\+\_\+path} & \\
+\hline
+{\em region\+\_\+size} & \\
+\hline
+{\em allow\+\_\+overwrite} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+void$\ast$ 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classPrivateer_adf650350a471d2604ec0e8cf266f3a30}\label{classPrivateer_adf650350a471d2604ec0e8cf266f3a30}} 
+\index{Privateer@{Privateer}!data@{data}}
+\index{data@{data}!Privateer@{Privateer}}
+\doxysubsubsection{\texorpdfstring{data()}{data()}}
+{\footnotesize\ttfamily void$\ast$ Privateer\+::data (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Get the start address of a datastore region. 
+
+\begin{DoxyReturn}{Returns}
+void$\ast$ 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classPrivateer_acaffd80a45c58567c531971bccd4ca3e}\label{classPrivateer_acaffd80a45c58567c531971bccd4ca3e}} 
+\index{Privateer@{Privateer}!get\_block\_size@{get\_block\_size}}
+\index{get\_block\_size@{get\_block\_size}!Privateer@{Privateer}}
+\doxysubsubsection{\texorpdfstring{get\_block\_size()}{get\_block\_size()}}
+{\footnotesize\ttfamily size\+\_\+t Privateer\+::get\+\_\+block\+\_\+size (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Get the block size object. 
+
+\begin{DoxyReturn}{Returns}
+size\+\_\+t 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classPrivateer_a4538f75afc97d558265b3039f7de7ed6}\label{classPrivateer_a4538f75afc97d558265b3039f7de7ed6}} 
+\index{Privateer@{Privateer}!open@{open}}
+\index{open@{open}!Privateer@{Privateer}}
+\doxysubsubsection{\texorpdfstring{open()}{open()}}
+{\footnotesize\ttfamily void$\ast$ Privateer\+::open (\begin{DoxyParamCaption}\item[{void $\ast$}]{addr,  }\item[{const char $\ast$}]{version\+\_\+metadata\+\_\+path }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Open an existing \mbox{\hyperlink{classPrivateer}{Privateer}} datastore. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em addr} & \\
+\hline
+{\em version\+\_\+metadata\+\_\+path} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+void$\ast$ 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classPrivateer_ae8a6d2dd06e7d1b996171e48dc377742}\label{classPrivateer_ae8a6d2dd06e7d1b996171e48dc377742}} 
+\index{Privateer@{Privateer}!open\_immutable@{open\_immutable}}
+\index{open\_immutable@{open\_immutable}!Privateer@{Privateer}}
+\doxysubsubsection{\texorpdfstring{open\_immutable()}{open\_immutable()}}
+{\footnotesize\ttfamily void$\ast$ Privateer\+::open\+\_\+immutable (\begin{DoxyParamCaption}\item[{void $\ast$}]{addr,  }\item[{const char $\ast$}]{version\+\_\+metadata\+\_\+path,  }\item[{const char $\ast$}]{new\+\_\+version\+\_\+metadata\+\_\+path }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Open an existing \mbox{\hyperlink{classPrivateer}{Privateer}} datastore without modifying the original datastore. A copy is made similar to \mbox{\hyperlink{classPrivateer_a193b472c293e05daef2011a1c0f2388d}{snapshot()}}. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em addr} & \\
+\hline
+{\em version\+\_\+metadata\+\_\+path} & \\
+\hline
+{\em new\+\_\+version\+\_\+metadata\+\_\+path} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+void$\ast$ 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classPrivateer_a31085aa0fb30f68e6a0b90c6c59d7fa1}\label{classPrivateer_a31085aa0fb30f68e6a0b90c6c59d7fa1}} 
+\index{Privateer@{Privateer}!open\_read\_only@{open\_read\_only}}
+\index{open\_read\_only@{open\_read\_only}!Privateer@{Privateer}}
+\doxysubsubsection{\texorpdfstring{open\_read\_only()}{open\_read\_only()}}
+{\footnotesize\ttfamily void$\ast$ Privateer\+::open\+\_\+read\+\_\+only (\begin{DoxyParamCaption}\item[{void $\ast$}]{addr,  }\item[{const char $\ast$}]{version\+\_\+metadata\+\_\+path }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Open an existing \mbox{\hyperlink{classPrivateer}{Privateer}} datastore with read-\/only permission. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em addr} & \\
+\hline
+{\em version\+\_\+metadata\+\_\+path} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+void$\ast$ 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classPrivateer_a193b472c293e05daef2011a1c0f2388d}\label{classPrivateer_a193b472c293e05daef2011a1c0f2388d}} 
+\index{Privateer@{Privateer}!snapshot@{snapshot}}
+\index{snapshot@{snapshot}!Privateer@{Privateer}}
+\doxysubsubsection{\texorpdfstring{snapshot()}{snapshot()}}
+{\footnotesize\ttfamily bool Privateer\+::snapshot (\begin{DoxyParamCaption}\item[{const char $\ast$}]{version\+\_\+metadata\+\_\+path }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Commit changes and takes a snapshot of current changes made so far. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em version\+\_\+metadata\+\_\+path} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+true 
+
+false 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classPrivateer_ab51659e181b6dee368542642ac5404c5}\label{classPrivateer_ab51659e181b6dee368542642ac5404c5}} 
+\index{Privateer@{Privateer}!version\_exists@{version\_exists}}
+\index{version\_exists@{version\_exists}!Privateer@{Privateer}}
+\doxysubsubsection{\texorpdfstring{version\_exists()}{version\_exists()}}
+{\footnotesize\ttfamily bool Privateer\+::version\+\_\+exists (\begin{DoxyParamCaption}\item[{const char $\ast$}]{version\+\_\+metadata\+\_\+path }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Check version metadata. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em version\+\_\+metadata\+\_\+path} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+true 
+
+false 
+\end{DoxyReturn}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+/home/caleb/\+Documents/2024\+Summer/\+Privateer/include/privateer/privateer.\+hpp\end{DoxyCompactItemize}

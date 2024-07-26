@@ -287,7 +287,12 @@ class virtual_memory_manager {
       }
 
 #ifdef SIGACTION
-      m_region_start_address = mmap(addr, m_region_max_capacity, PROT_NONE, mmap_flags, -1, 0);
+      //int prot = read_only ? PROT_NONE : (PROT_READ | PROT_WRITE);
+      //int prot = read_only ? PROT_NONE : PROT_READ;
+      //int prot = read_only ? PROT_NONE : PROT_WRITE;
+      //int prot = read_only ? (PROT_READ | PROT_WRITE) : PROT_NONE;
+      int prot = PROT_NONE;
+      m_region_start_address = mmap(addr, m_region_max_capacity, prot, mmap_flags, -1, 0);
 #endif
 #ifdef USERFAULTFD
       prot = read_only ? PROT_READ : (PROT_READ | PROT_WRITE);
@@ -346,9 +351,9 @@ class virtual_memory_manager {
       if (fstat(0,&st_dev_null) != 0){
         int dev_null_fd = ::open("/dev/null",O_RDWR);
       }
+      m_read_only = read_only;
 
 #ifdef USERFAULTFD
-      m_read_only = read_only;
 /* pthread_mutex_init(&handler_mutex, NULL);
    uffd_active = true;
    if (pipe2(uffd_pipe, 0) < 0){
@@ -526,7 +531,6 @@ class virtual_memory_manager {
 #ifdef USERFAULTFD
       stash_set[sub_region_index].clear();
       update_metadata(sub_region_index);
-#endif
 
       struct stat st_dev_null;
       if (fstat(0,&st_dev_null) != 0){
@@ -545,10 +549,12 @@ class virtual_memory_manager {
           exit(-1);
         }
       }
+#endif
     }
 
 #ifdef SIGACTION
     void handler(int sig, siginfo_t *si, void *ctx_void_ptr){
+
       //const std::lock_guard<std::mutex> lock(sig_handler_mutex);
       // Get and assert faulting address
       uint64_t fault_address = (uint64_t) si->si_addr;
@@ -576,6 +582,10 @@ class virtual_memory_manager {
       ucontext_t *ctx = (ucontext_t *) ctx_void_ptr;
       bool is_write_fault = ctx->uc_mcontext.gregs[REG_ERR] & 0x2;
 
+      if (m_read_only && is_write_fault) {
+        spdlog::error("virtual_memory_manager: write fault on a read-only region");
+        exit(-1);
+      }
 
       if (present_blocks.find((uint64_t) block_address) != present_blocks.end()){ // Block is present in-memory (just change prot and LRU if needed)
         spdlog::info("virtual_memory_manager: handler() - Block present in memory");
@@ -793,7 +803,7 @@ class virtual_memory_manager {
         // std::cout << "Identifier: " << this << std::endl;
         // printf("Starting address: %ld blocks_ids address: %ld Thread ID: %ld\n", (uint64_t) m_region_start_address, (uint64_t) &blocks_ids[0], (uint64_t) syscall(SYS_gettid));
         if (is_wp_fault){
-          // printf("Handling WP from thread %ld for address %ld \n", (uint64_t) syscall(SYS_gettid), fault_address);
+          spdlog::info("WP FAULT: Handling WP from thread {} for address {}", (uint64_t) syscall(SYS_gettid), fault_address);
           if (m_read_only){
             spdlog::error("virtual_memory_manager: write fault on a read-only region");
             exit(-1);
@@ -824,6 +834,7 @@ class virtual_memory_manager {
           spdlog::info("virtual_memory_manager: handler() - ioctl-UFFDIO_WRITEPROTECT done");
         }
         else{ // std::cout << "BEFORO Handler 420" << std::endl;
+          spdlog::info("NOT WP FAULT");
           if (present_blocks[sub_region_index].find(block_address) == present_blocks[sub_region_index].end()){
             // std::cout << "Handler 420" << std::endl;
             evict_if_needed(sub_region_index);

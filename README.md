@@ -46,14 +46,14 @@ cd build/test_apps
 
 ### Creating and memory-mapping a new data store
 ```cpp
-  Privateer privateer(addr, blocks_dir_path, version_metadata_path, max_capacity);
-  void* data = privateer.data();
+  Privateer privateer(Privateer::CREATE, "datastore");
+  void* data = (size_t*) privateer.create(nullptr, "v0", size_bytes, true);
 ```
 
 ### Opening and memory-mapping an existing data store
 ```cpp
-  Privateer privateer(addr, blocks_dir_path, version_metadata_path);
-  void*	data = privateer.data();
+  Privateer privateer(Privateer::OPEN, "datastore");
+  void* data = (size_t*) privateer.open(nullptr, "v0");
 ```
 
 ### Writeback

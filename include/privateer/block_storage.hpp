@@ -30,6 +30,7 @@
 #include "utility/compression.hpp"
 #endif
 #include "spdlog/spdlog.h"
+#define OUT_TRACE (MSG) std::cout << MSG << std::endl;
 
 class block_storage
 {

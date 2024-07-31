@@ -15,7 +15,7 @@ please see [this page](./cmake.md) about building the test programs.
 make test
 ```
 
-The tests create datastores in the `./datastore` directory by default.
+The tests create datastores in the `/tmp/datastore` directory by default.
 
 To change the location, use an environmental value 'PRIVATEER_TEST_DIR'.
 

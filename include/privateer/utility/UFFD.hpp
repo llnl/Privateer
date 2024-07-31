@@ -78,23 +78,23 @@ namespace utility{
         /* Create and enable userfaultfd object. */
         m_uffd = syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK);
         if (m_uffd == -1){
-            std::cerr << "Error creating UFFD object - " << strerror(errno) << std::endl;
+            spdlog::error("UFFD: Error creating UFFD object - {}", strerror(errno));
             exit(-1);
         }
         
         uffdio_api.api = UFFD_API;
         uffdio_api.features = UFFD_FEATURE_PAGEFAULT_FLAG_WP;
         if (ioctl(m_uffd, UFFDIO_API, &uffdio_api) == -1){
-            std::cerr << "Error ioctl-UFFDIO_API - " << strerror(errno) << std::endl;
-            exit(-1);
+          spdlog::error("UFFD: Error ioctl-UFFDIO_API - {}", strerror(errno));
+          exit(-1);
         }
         if ( !(uffdio_api.features & UFFD_FEATURE_PAGEFAULT_FLAG_WP) ){
-          std::cerr << "Error - UFFDIO WP not supported" << std::endl;
+          spdlog::error("UFFD: Error UFFDIO WP not supported - {}", strerror(errno));
           exit(-1);
         }
         // Init pipe
         if (pipe2(uffd_pipe, 0) < 0){
-          std::cerr << "Virtual Memory Manager: Error Userfaultfd pipe failed - " << strerror(errno) << std::endl;
+          spdlog::error("UFFD: Error Userfaultfd pipe failed - {}", strerror(errno));
           exit(-1);
         }
         // Start listener thread
@@ -102,7 +102,7 @@ namespace utility{
         // std::cout << "UFFD Thread ID: " << thr << std::endl;
         if (s != 0) {
             errno = s;
-            std::cerr << "Error pthread_create - " << strerror(errno) << std::endl;
+            spdlog::error("UFFD: Error pthread_create - {}", strerror(errno));
             exit(-1);
         }
       }
@@ -120,7 +120,7 @@ namespace utility{
       write(uffd_pipe[1], bye, 3);
       int err;
       if((err = pthread_join(listener_thread,NULL)) != 0){
-        std::cerr << "Error: Failed to cancel main listener thread - "   << strerror(err) << std::endl;
+        spdlog::error("UFFD: Failed to cancel main listener thread - {}", strerror(errno));
         exit(-1);
       }
       // std::cout << "Done stopping UFFD Listener\n";
@@ -147,7 +147,7 @@ namespace utility{
     const std::lock_guard<std::mutex> lock(register_mutex);
     // printf("Aquired UFFD::register_mutex Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
     if (m_uffd == -1){
-      std::cerr << "Error: usefaultfd not initialized using UFFD::init_uffd()\n";
+      spdlog::error("UFFD: userfaultfd not initialized using UFFD::init_uffd()");
       exit(-1);
     }
     // std::cout << "Registering Address: " << addr << std::endl;
@@ -160,12 +160,12 @@ namespace utility{
     uffdio_register.range.len = length;
     uffdio_register.mode = /* read_only ? UFFDIO_REGISTER_MODE_MISSING :*/ (UFFDIO_REGISTER_MODE_MISSING | UFFDIO_REGISTER_MODE_WP);
     if (ioctl(m_uffd, UFFDIO_REGISTER, &uffdio_register) == -1){
-        std::cerr << "ioctl-UFFDIO_REGISTER - " << strerror(errno) << std::endl;
+      spdlog::error("UFFD: ioctl-UFFDIO_REGISTER - {}", strerror(errno));
         exit(-1);
     }
 
     if( !(uffdio_register.ioctls & (1 << _UFFDIO_COPY)) || !(uffdio_register.ioctls & (1 << _UFFDIO_WRITEPROTECT))){
-      std::cerr << "Error registering UFFD region - Unexpected ioctl set" << std::endl;
+      spdlog::error("UFFD: Error registering UFFD region - Unexpected ioctl set");
       exit(-1);
     }
 
@@ -182,7 +182,7 @@ namespace utility{
     uffdio_range.start = addr;
     uffdio_range.len = length;
     if (ioctl(m_uffd, UFFDIO_UNREGISTER, &uffdio_range) == -1){
-      std::cerr << "Error: ioctl-UFFDIO_UNREGISTER - "   << strerror(errno) << std::endl;
+      spdlog::error("UFFD: ioctl-UFFDIO_UNREGISTER - {}", strerror(errno));
       exit(-1);
     }
     vmm->add_page_fault_event_all({.address = 0, .is_wp_fault = false, .is_write_fault = false});
@@ -224,10 +224,10 @@ namespace utility{
 
     // START: Poll for page fault events
     while (true){
-      // printf("POLLING FROM %ld\n", (uint64_t) syscall(SYS_gettid)); // std::cout << "POLLING!!!" << std::endl;
+      printf("POLLING FROM %ld\n", (uint64_t) syscall(SYS_gettid)); // std::cout << "POLLING!!!" << std::endl;
       nready = poll(&pollfd[0], 3, -1);
       if (nready == -1){
-        std::cerr << "Error polling UFFD event - " << strerror(errno) << std::endl;
+        spdlog::error("UFFD: Error polling UFFD event - {}", strerror(errno));
         exit(-1);
       }
 
@@ -256,14 +256,15 @@ namespace utility{
       // received_ts.push_back(std::chrono::duration_cast<std::chrono::microseconds>(ts.time_since_epoch()).count());
       // std::cout << "Page Fault Recieved At: " << std::chrono::duration_cast<std::chrono::microseconds>(ts.time_since_epoch()).count() << std::endl;
       // auto start = std::chrono::high_resolution_clock::now();
+      printf("CHECKING UFFD FROM %ld\n", (uint64_t) syscall(SYS_gettid)); // std::cout << "POLLING!!!" << std::endl;
       nread = read(m_uffd, &m_events[0], m_max_fault_events * sizeof(struct uffd_msg));
       if (nread == 0) {
-          std::cerr << "EOF on userfaultfd!" << std::endl;
-          exit(EXIT_FAILURE);
+        spdlog::error("UFFD: EOF on userfaultfd");
+        exit(EXIT_FAILURE);
       }
 
       if (nread == -1){
-        std::cerr << "Error reading UFFD file" << strerror(errno) << std::endl;
+        spdlog::error("UFFD: Error reading UFFD file - {}", strerror(errno));
         exit(-1);
       }
 
@@ -280,11 +281,12 @@ namespace utility{
       std::sort(&m_events[0], &m_events[msgs], less_than_key()); */
 
       // char* last_addr = nullptr;
+      printf("LOOPING MESSAGES FROM %ld\n", (uint64_t) syscall(SYS_gettid)); // std::cout << "POLLING!!!" << std::endl;
       for (int i = 0; i < msgs; ++i) {
         struct uffd_msg msg = m_events[i];
         if (msg.event != UFFD_EVENT_PAGEFAULT) {
-            std::cerr << "Unexpected event on userfaultfd" << std::endl;
-            exit(EXIT_FAILURE);
+          spdlog::error("UFFD: Unexpected event on userfaultfd");
+          exit(EXIT_FAILURE);
         }
         virtual_memory_manager *vmm = search_and_dispatch_vmm(msg.arg.pagefault.address);
         uint64_t fault_address = (uint64_t) (msg.arg.pagefault.address);
@@ -320,7 +322,7 @@ namespace utility{
       }
     }
     // printf("Address %ld not found for Thread ID: %ld\n", fault_address , (uint64_t) syscall(SYS_gettid));
-    std::cerr << "UFFD Error: Region not registered\n";
+    spdlog::error("UFFD: Region not registered");
     exit(-1);
   }
 }

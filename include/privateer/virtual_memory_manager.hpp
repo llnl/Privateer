@@ -287,12 +287,7 @@ class virtual_memory_manager {
       }
 
 #ifdef SIGACTION
-      //int prot = read_only ? PROT_NONE : (PROT_READ | PROT_WRITE);
-      //int prot = read_only ? PROT_NONE : PROT_READ;
-      //int prot = read_only ? PROT_NONE : PROT_WRITE;
-      //int prot = read_only ? (PROT_READ | PROT_WRITE) : PROT_NONE;
-      int prot = PROT_NONE;
-      m_region_start_address = mmap(addr, m_region_max_capacity, prot, mmap_flags, -1, 0);
+      m_region_start_address = mmap(addr, m_region_max_capacity, PROT_NONE, mmap_flags, -1, 0);
 #endif
 #ifdef USERFAULTFD
       prot = read_only ? PROT_READ : (PROT_READ | PROT_WRITE);
@@ -484,10 +479,13 @@ class virtual_memory_manager {
         {
           // std::cout << "wp-ing block\n";
           is_valid_uffd(m_uffd);
+          // TODO: Fix hanging issue after msync()
+          //*
           struct uffdio_writeprotect uffdio_writeprotect;
           uffdio_writeprotect.range.start = (uint64_t) block_address;
           uffdio_writeprotect.range.len = (uint64_t) m_block_size;
           uffdio_writeprotect.mode = UFFDIO_WRITEPROTECT_MODE_WP; // UFFDIO_WRITEPROTECT_MODE_DONTWAKE;
+          //uffdio_writeprotect.mode = UFFDIO_WRITEPROTECT_MODE_DONTWAKE;
           SPDLOG_TRACE("virtual_memory_manager: msync() - block index - {}", (size_t) (block_address - (size_t) m_region_start_address) / m_block_size);
           SPDLOG_TRACE("virtual_memory_manager: msync() - m_block_size - {}", m_block_size);
           if (ioctl(m_uffd, UFFDIO_WRITEPROTECT, &uffdio_writeprotect) == -1){
@@ -495,6 +493,7 @@ class virtual_memory_manager {
             exit(-1);
           }
           spdlog::info("virtual_memory_manager: msync() - ioctl-UFFDIO_WRITEPROTECT done");
+          //*/
           // std::cout << "done wp-ing block\n";
           int sub_region_index = ((uint64_t) block_address) % num_handling_threads;
           clean_lru[sub_region_index].push_front((uint64_t)block_address);
@@ -537,7 +536,7 @@ class virtual_memory_manager {
         int dev_null_fd = ::open("/dev/null",O_RDWR);
       }
       spdlog::info("virtual_memory_manager: msync() - done");
-
+/*
       struct uffdio_writeprotect uffdio_writeprotect;
       uffdio_writeprotect.range.len = (uint64_t) m_block_size;
       uffdio_writeprotect.mode = 0;
@@ -549,6 +548,7 @@ class virtual_memory_manager {
           exit(-1);
         }
       }
+//*/
 #endif
     }
 
@@ -764,7 +764,7 @@ class virtual_memory_manager {
         // printf("Aquired handler_mutex_global handler Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
         // if (!fault_events_queue.empty()){
         // Get and assert faulting address
-        // printf("Dequeing from thread %ld \n", (uint64_t) syscall(SYS_gettid));
+        printf("Dequeing from thread %ld \n", (uint64_t) syscall(SYS_gettid));
         utility::fault_event fevent = events_queues[sub_region_index].dequeue();
         if (fevent.address == 0){
           // std::cout << "Zero Address\n";
@@ -962,7 +962,7 @@ class virtual_memory_manager {
               clean_lru[sub_region_index].push_front(block_address);
             }
             present_blocks[sub_region_index].insert(block_address);
-            events_queues[sub_region_index].remove_processed(fevent);
+            //events_queues[sub_region_index].remove_processed(fevent);
             is_valid_uffd(m_uffd);
             struct uffdio_range uffdio_range;
             uffdio_range.start = block_address;
@@ -974,6 +974,7 @@ class virtual_memory_manager {
             spdlog::info("virtual_memory_manager: handler() - ioctl-UFFDIO_WAKE done");
           }
         }
+        events_queues[sub_region_index].remove_processed(fevent);
         /* std::chrono::time_point<std::chrono::system_clock> */ ts = std::chrono::system_clock::now();
         // std::cout << "Page Fault Handled At: " << std::chrono::duration_cast<std::chrono::microseconds>(ts.time_since_epoch()).count() << std::endl;
         // handled_ts.push_back(std::chrono::duration_cast<std::chrono::microseconds>(ts.time_since_epoch()).count());
@@ -1045,14 +1046,16 @@ class virtual_memory_manager {
     }
 
     bool snapshot(const char* version_metadata_path){
-
+      //spdlog::info("virtual_memory_manager: snapshot() 1 - {}", ((size_t*) get_region_start_address())[0]);
       std::string snapshot_metadata_path = std::string(version_metadata_path) + "/_metadata";
       std::string m_temp_current_metadata_path = m_version_metadata_path;
 
+
+      spdlog::info("virtual_memory_manager: snapshot()");
       // Create new version metadata directory
       if(utility::directory_exists(version_metadata_path)){
         if (utility::file_exists(snapshot_metadata_path.c_str())){
-          spdlog::error("virtual_memory_manager: Version metadata directory already exists");
+          spdlog::warn("virtual_memory_manager: Version metadata directory already exists");
           return false;
         }
       }
@@ -1062,17 +1065,20 @@ class virtual_memory_manager {
         return false;
       }
 
+      //spdlog::info("virtual_memory_manager: snapshot() 2 - {}", ((size_t*) get_region_start_address())[0]);
       // temporarily change metadata file descriptor
       // int temp_metada_fd = metadata_fd;
       m_version_metadata_path = std::string(version_metadata_path);
 
       int metadata_fd = ::open(snapshot_metadata_path.c_str(), O_RDWR | O_CREAT, (mode_t) 0666);
       int close_status = ::close(metadata_fd);
-      
+
+      //spdlog::info("virtual_memory_manager: snapshot() 3 - {}", ((size_t*) get_region_start_address())[0]);
       msync();
       m_version_metadata_path = m_temp_current_metadata_path;
       // metadata_fd = temp_metada_fd;
 
+      //spdlog::info("virtual_memory_manager: snapshot() 4 - {}", ((size_t*) get_region_start_address())[0]);
       // Create file to save blocks path
       std::string blocks_path_file_name = std::string(version_metadata_path) + "/_blocks_path";
       std::ofstream blocks_path_file;
@@ -1131,7 +1137,7 @@ class virtual_memory_manager {
       }
 
       static void* handler_helper(void *context){
-        // printf("Starting Handler HELPER from %ld\n", (uint64_t) syscall(SYS_gettid));
+        printf("Starting Handler HELPER from %ld\n", (uint64_t) syscall(SYS_gettid));
         int sub_region_index = ((virtual_memory_manager *)context)->get_next_sub_region();
         return ((virtual_memory_manager *)context)->handler(sub_region_index);
       }
@@ -1151,13 +1157,13 @@ class virtual_memory_manager {
         uint64_t start_address = (uint64_t) m_region_start_address;
         uint64_t block_index = (fevent.address - start_address) / m_block_size;
         uint64_t sub_region_index = block_index % num_handling_threads;
-        // printf("Page Fault Event Added to queue for address %ld sub_region_index %ld num_handling_threads %ld\n", fevent.address, sub_region_index, num_handling_threads);
+        printf("Page Fault Event Added to queue for address %ld sub_region_index %ld num_handling_threads %ld\n", fevent.address, sub_region_index, num_handling_threads);
         // auto start = std::chrono::high_resolution_clock::now();
         if (!events_queues[sub_region_index].found(fevent)){
           events_queues[sub_region_index].enqueue(fevent);
         }
         else {
-          // std::cout << "FOUND" << std::endl ;
+          std::cout << "FOUND" << std::endl ;
         }
         // auto stop = std::chrono::high_resolution_clock::now();
         // auto add_time = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);

@@ -55,24 +55,25 @@ namespace utility{
 
     template <typename T>
     void event_queue<T>::enqueue(T item) {
-      // std::cout << "enquing\n";
+      std::cout << "enquing\n";
       pthread_mutex_lock(&m_mutex);
-      // std::cout << "Before push back\n";
+      std::cout << "Before push back\n";
       // bool found = (std::find(m_queue.begin(), m_queue.end(), item) != m_queue.end());
       // if (!found || (((utility::fault_event)item).address == 0)){
       m_queue.push_back(item);
       if (! ((fault_event) item).address == 0){
         m_processing.insert(item);
       }
-      // std::cout << "After push back\n";
+      std::cout << "After push back\n";
       pthread_cond_signal(&m_cond);
       // }
       pthread_mutex_unlock(&m_mutex);
-      // std::cout << "done enquing\n";
+      std::cout << "done enquing\n";
     }
 
     template <typename T>
     T event_queue<T>::dequeue() {
+      std::cout << "dequing\n";
       pthread_mutex_lock(&m_mutex);
 
       ++m_waiting_workers;
@@ -87,13 +88,16 @@ namespace utility{
       --m_waiting_workers;
 
       auto item = m_queue.front();
+      std::cout << "Before pop front\n";
       m_queue.pop_front();
+      std::cout << "After pop front\n";
       /* if (! ((fault_event) item).address == 0){
         m_processing.insert(item);
       } */
       
 
       pthread_mutex_unlock(&m_mutex);
+      std::cout << "done dequing\n";
       return item;
     }
 

@@ -27,9 +27,11 @@ class PrivateerTest : public testing::TestWithParam<std::tuple<size_t, size_t, s
     size_t size_bytes;
     size_t num_ints;
     size_t* data;
+    char* datastore = "/tmp/datastore";
 
     void SetUp() override {
-      spdlog::set_level(spdlog::level::trace);
+      std::filesystem::remove_all(this->datastore);
+      //spdlog::set_level(spdlog::level::trace);
       //spdlog::set_pattern("{\"id\":\"\",\"name\":\"%^%v%$\",\t\"cat\":\"CPP_APP\",\"pid\":\"%P\",\"tid\":\"%t\",\"ts\":\"%S%F\",\"dur\":\"\",\"ph\":\"X\",\"args\":{}}");
 
       char env[] = "PRIVATEER_MAX_MEM_BLOCKS=";
@@ -38,12 +40,15 @@ class PrivateerTest : public testing::TestWithParam<std::tuple<size_t, size_t, s
       strcat(env, block_num);
       putenv(env);
 
-//*
       // uffd env var
       putenv("PRIVATEER_BLOCK_SIZE=2097152");
-//*/
 
-      priv = new Privateer(Privateer::CREATE, "datastore");
+      // location of datastore directory, default is /tmp/datastore
+      if (std::getenv("PRIVATEER_TEST_DIR") != NULL) {
+        datastore = std::getenv("PRIVATEER_TEST_DIR");
+      }
+
+      priv = new Privateer(Privateer::CREATE, this->datastore);
       size_bytes = std::get<1>(GetParam());
       num_ints = size_bytes / sizeof(size_t);
       data = (size_t*) priv->create(nullptr, "v0", size_bytes, true);
@@ -51,7 +56,7 @@ class PrivateerTest : public testing::TestWithParam<std::tuple<size_t, size_t, s
 
     void TearDown() override {
       delete priv;
-      std::filesystem::remove_all("datastore");
+      //std::filesystem::remove_all(this->datastore);
     }
 };
 
@@ -69,7 +74,7 @@ TEST_P(PrivateerTest, Immutable) {
   priv->msync();
   delete priv;
 
-  priv = new Privateer(Privateer::OPEN, "datastore");
+  priv = new Privateer(Privateer::OPEN, this->datastore);
   this->data = (size_t*) priv->open_immutable(nullptr, "v0", "v1");
   this->data[start] = 1;
   this->data[middle] = 2;
@@ -78,7 +83,7 @@ TEST_P(PrivateerTest, Immutable) {
   priv->msync();
   delete priv;
 
-  priv = new Privateer(Privateer::OPEN, "datastore");
+  priv = new Privateer(Privateer::OPEN, this->datastore);
   this->data = (size_t*) priv->open_read_only(nullptr, "v0");
   EXPECT_EQ(this->data[start], 7);
   EXPECT_EQ(this->data[middle], 8);
@@ -104,15 +109,12 @@ TEST_P(PrivateerTest, SimpleWrite) {
   priv->msync();
   delete priv;
 
-  priv = new Privateer(Privateer::OPEN, "datastore");
+  priv = new Privateer(Privateer::OPEN, this->datastore);
   this->data = (size_t*) priv->open_read_only(nullptr, "v0");
   EXPECT_EQ(this->data[start], 7);
   EXPECT_EQ(this->data[middle], 8);
   EXPECT_EQ(this->data[middle_to_end], 9);
   EXPECT_EQ(this->data[end], 10);
-  std::cout << "region size: " << this->priv->region_size() << std::endl;
-  std::cout << "version capacity: " << this->priv->version_capacity("datastore/v0") << std::endl;
-  //std::cout << "version block size: " << this->priv->version_block_size("datastore/v0") << std::endl;
 }
 
 TEST_P(PrivateerTest, SimpleDenseWrite) {
@@ -123,7 +125,7 @@ TEST_P(PrivateerTest, SimpleDenseWrite) {
   priv->msync();
   delete priv;
 
-  priv = new Privateer(Privateer::OPEN, "datastore");
+  priv = new Privateer(Privateer::OPEN, this->datastore);
   this->data = (size_t*) priv->open_read_only(nullptr, "v0");
   for (size_t i = 0; i < this->num_ints; i++) {
     SPDLOG_TRACE("PrivateerTest: int - {}, val - {} EXPECT_EQ", i, this->data[i]);
@@ -152,7 +154,7 @@ TEST_P(PrivateerTest, SimpleWrite_Data) {
   priv->msync();
   delete priv;
 
-  priv = new Privateer(Privateer::OPEN, "datastore");
+  priv = new Privateer(Privateer::OPEN, this->datastore);
   this->data = (size_t*) priv->open_read_only(nullptr, "v0");
   EXPECT_EQ(this->data[start], 7);
   EXPECT_EQ(this->data[middle], 8);
@@ -171,7 +173,7 @@ TEST_P(PrivateerTest, SortWrite) {
   priv->msync();
   delete priv;
 
-  priv = new Privateer(Privateer::OPEN, "datastore");
+  priv = new Privateer(Privateer::OPEN, this->datastore);
   this->data = (size_t*) priv->open  (nullptr, "v0");
   for (size_t i = 0; i < this->num_ints; i++) {
     EXPECT_EQ(this->data[i], (this->num_ints - 1) - i);
@@ -180,7 +182,7 @@ TEST_P(PrivateerTest, SortWrite) {
   priv->msync();
   delete priv;
 
-  priv = new Privateer(Privateer::OPEN, "datastore");
+  priv = new Privateer(Privateer::OPEN, this->datastore);
   this->data = (size_t*) priv->open_read_only(nullptr, "v0");
   for (size_t i = 0; i < this->num_ints; i++) {
     EXPECT_EQ(this->data[i], i);
@@ -199,7 +201,7 @@ TEST_P(PrivateerTest, MultipleWrite) {
   for (size_t k = 0; k < num_iterations; k++) {
     delete priv;
     SPDLOG_TRACE("PrivateerTest: iteration - {}", k);
-    priv = new Privateer(Privateer::OPEN, "datastore");
+    priv = new Privateer(Privateer::OPEN, this->datastore);
     this->data = (size_t*) priv->open(nullptr, "v0");
     spdlog::info("PrivateerTest: opened datastore");
     for (size_t i = 0; i < this->num_ints; i++) {
@@ -214,7 +216,7 @@ TEST_P(PrivateerTest, MultipleWrite) {
     priv->msync();
     delete priv;
 
-    priv = new Privateer(Privateer::OPEN, "datastore");
+    priv = new Privateer(Privateer::OPEN, this->datastore);
     this->data = (size_t*) priv->open(nullptr, "v0");
     for (size_t i = 0; i < this->num_ints; i++) {
       SPDLOG_TRACE("PrivateerTest: int - {}, val - {} EXPECT_EQ", i, this->data[i]);
@@ -225,7 +227,6 @@ TEST_P(PrivateerTest, MultipleWrite) {
       SPDLOG_TRACE("PrivateerTest: int - {}, val - {}", i, this->data[i]);
     }
     priv->msync();
-    this->data[0] = 0;
   }
 }
 
@@ -241,7 +242,7 @@ TEST_P(PrivateerTest, MultipleWrite_Threaded) {
   int num_iterations = std::get<2>(GetParam());
   for (size_t k = 0; k < num_iterations; k++) {
     delete priv;
-    priv = new Privateer(Privateer::OPEN, "datastore");
+    priv = new Privateer(Privateer::OPEN, this->datastore);
     this->data = (size_t*) priv->open(nullptr, "v0");
 #pragma omp for
     for (size_t i = 0; i < this->num_ints; i++) {
@@ -254,7 +255,7 @@ TEST_P(PrivateerTest, MultipleWrite_Threaded) {
     priv->msync();
     delete priv;
 
-    priv = new Privateer(Privateer::OPEN, "datastore");
+    priv = new Privateer(Privateer::OPEN, this->datastore);
     this->data = (size_t*) priv->open  (nullptr, "v0");
 #pragma omp for
     for (size_t i = 0; i < this->num_ints; i++) {
@@ -282,7 +283,7 @@ TEST_P(PrivateerTest, MultipleWriteSparse) {
   for (size_t k = 0; k < num_iterations; k++) {
       spdlog::info("Iteration: {}", k);
     delete priv;
-    priv = new Privateer(Privateer::OPEN, "datastore");
+    priv = new Privateer(Privateer::OPEN, this->datastore);
     this->data = (size_t*) priv->open(nullptr, "v0");
 /*
 #pragma omp parallel for
@@ -297,7 +298,7 @@ TEST_P(PrivateerTest, MultipleWriteSparse) {
     priv->msync();
     delete priv;
 
-    priv = new Privateer(Privateer::OPEN, "datastore");
+    priv = new Privateer(Privateer::OPEN, this->datastore);
     this->data = (size_t*) priv->open  (nullptr, "v0");
 /*
 #pragma omp parallel for
@@ -329,7 +330,7 @@ TEST_P(PrivateerTest, MultipleWriteSparse_Threaded) {
   for (size_t k = 0; k < num_iterations; k++) {
       spdlog::info("Iteration: {}", k);
     delete priv;
-    priv = new Privateer(Privateer::OPEN, "datastore");
+    priv = new Privateer(Privateer::OPEN, this->datastore);
     this->data = (size_t*) priv->open(nullptr, "v0");
 /*
 #pragma omp parallel for
@@ -345,7 +346,7 @@ TEST_P(PrivateerTest, MultipleWriteSparse_Threaded) {
     priv->msync();
     delete priv;
 
-    priv = new Privateer(Privateer::OPEN, "datastore");
+    priv = new Privateer(Privateer::OPEN, this->datastore);
     this->data = (size_t*) priv->open  (nullptr, "v0");
 /*
 #pragma omp parallel for
@@ -396,6 +397,52 @@ TEST_P(PrivateerTest, IncrementalRandomSparseWrite_Threaded) {
   }
 }
 
+TEST_P(PrivateerTest, SingleSnapshot) {
+  size_t start = 0;
+  size_t middle = this->num_ints / 2;
+  size_t middle_to_end = ( this->num_ints / 2 ) + ( this->num_ints / 4 );
+  size_t end = this->num_ints - 1;
+  this->data[start] = 7;
+  this->data[middle] = 8;
+  this->data[middle_to_end] = 9;
+  this->data[end] = 10;
+  EXPECT_EQ(this->data[start], 7);
+  EXPECT_EQ(this->data[middle], 8);
+  EXPECT_EQ(this->data[middle_to_end], 9);
+  EXPECT_EQ(this->data[end], 10);
+  std::cout << "written to: " << end << std::endl;
+  priv->snapshot(("v1"));
+  this->data[start] = 8;
+  this->data[middle] = 9;
+  this->data[middle_to_end] = 10;
+  this->data[end] = 11;
+  EXPECT_EQ(this->data[start], 8);
+  EXPECT_EQ(this->data[middle], 9);
+  EXPECT_EQ(this->data[middle_to_end], 10);
+  EXPECT_EQ(this->data[end], 11);
+  std::cout << "written to: " << end << std::endl;
+  priv->msync();
+  priv->snapshot(("v2"));
+  delete priv;
+
+  priv = new Privateer(Privateer::OPEN, this->datastore);
+  this->data = (size_t*) priv->open_read_only(nullptr, "v0");
+  EXPECT_EQ(this->data[start], 8);
+  EXPECT_EQ(this->data[middle], 9);
+  EXPECT_EQ(this->data[middle_to_end], 10);
+  EXPECT_EQ(this->data[end], 11);
+  this->data = (size_t*) priv->open_read_only(nullptr, "v1");
+  EXPECT_EQ(this->data[start], 7);
+  EXPECT_EQ(this->data[middle], 8);
+  EXPECT_EQ(this->data[middle_to_end], 9);
+  EXPECT_EQ(this->data[end], 10);
+  this->data = (size_t*) priv->open_read_only(nullptr, "v2");
+  EXPECT_EQ(this->data[start], 8);
+  EXPECT_EQ(this->data[middle], 9);
+  EXPECT_EQ(this->data[middle_to_end], 10);
+  EXPECT_EQ(this->data[end], 11);
+}
+
 TEST_P(PrivateerTest, SimpleSnapshot) {
   int num_iterations = std::get<2>(GetParam());
   for (size_t i = 0; i < this->num_ints; i++) {
@@ -407,12 +454,14 @@ TEST_P(PrivateerTest, SimpleSnapshot) {
     for (size_t k = 1; k < this->num_ints; k+=2) {
       this->data[k]++;
       EXPECT_EQ(data[k], j);
+      EXPECT_EQ(data[k-1], 0);
     }
     priv->snapshot(("v" + std::to_string(j)).c_str());
   }
   delete priv;
 
-  priv = new Privateer(Privateer::OPEN, "datastore");
+  priv = new Privateer(Privateer::OPEN, this->datastore);
+  //*
   for (int j = 1; j <= num_iterations; ++j){
     this->data = (size_t*) priv->open_read_only(nullptr, ("v" + std::to_string(j)).c_str());
     for (size_t k = 1; k < this->num_ints; k+=2){
@@ -420,6 +469,7 @@ TEST_P(PrivateerTest, SimpleSnapshot) {
       EXPECT_EQ(data[k-1], 0);
     }
   }
+  //*/
 }
 
 TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot) {
@@ -474,7 +524,7 @@ TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot_Threaded) {
   for (offset_iterator = random_indices_first_half.begin(); offset_iterator <= random_indices_first_half.end(); ++offset_iterator){
     EXPECT_GE(*offset_iterator, 0);
     EXPECT_LT(*offset_iterator, this->num_ints);
-      spdlog::info("Faulted on block address: {}", *offset_iterator);
+    spdlog::info("Faulted on block address: {}", *offset_iterator);
     this->data[*offset_iterator] += 1;
   }
   this->priv->msync();
@@ -542,6 +592,10 @@ TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot_Skewed_Threaded) {
 }
 
 TEST(PrivateerTest_Concurrent, ConcurrentWrite) {
+  char* datastore = "/tmp/datastore";
+  if (std::getenv("PRIVATEER_TEST_DIR") != NULL) {
+    datastore = std::getenv("PRIVATEER_TEST_DIR");
+  }
   size_t size_bytes = 1024LLU;
   size_t num_ints = size_bytes / sizeof(size_t);
   MPI_Init(NULL, NULL);
@@ -551,14 +605,14 @@ TEST(PrivateerTest_Concurrent, ConcurrentWrite) {
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
   if (world_rank == 0){
-      Privateer privateer(Privateer::CREATE, "datastore");
+      Privateer privateer(Privateer::CREATE, datastore);
       privateer.create(nullptr, "v0", size_bytes, true);
       privateer.msync();
   }
   MPI_Barrier(MPI_COMM_WORLD);
 
   if (world_rank != 0){
-      Privateer privateer(Privateer::OPEN, "datastore");
+      Privateer privateer(Privateer::OPEN, datastore);
       size_t *data = (size_t*) privateer.open_immutable(nullptr, "v0", ("v" + std::to_string(world_rank)).c_str());
       for (size_t i = 0; i < num_ints; i++){
         data[i] = i;
@@ -569,7 +623,7 @@ TEST(PrivateerTest_Concurrent, ConcurrentWrite) {
 
   if (world_rank == 0) {
     for (int i = 1; i < world_size; i++){
-      Privateer privateer(Privateer::OPEN, "datastore");
+      Privateer privateer(Privateer::OPEN, datastore);
       size_t *data = (size_t*) privateer.open_read_only(nullptr, ("v" + std::to_string(i)).c_str());
       for (size_t j = 0; j < num_ints; j++){
         EXPECT_EQ(data[j], j);
@@ -577,7 +631,7 @@ TEST(PrivateerTest_Concurrent, ConcurrentWrite) {
     }
   }
   MPI_Finalize();
-  std::filesystem::remove_all("datastore");
+  std::filesystem::remove_all(datastore);
 }
 
 // Death tests
@@ -603,8 +657,10 @@ TEST_P(PrivateerTest, ReadOnly) {
   priv->msync();
   delete priv;
 
-  priv = new Privateer(Privateer::OPEN, "datastore");
+  priv = new Privateer(Privateer::OPEN, this->datastore);
   this->data = (size_t*) priv->open_read_only(nullptr, "v0");
+  spdlog::info("Read op");
+  EXPECT_EQ(this->data[0], 7);
   spdlog::info("Write op");
   EXPECT_DEATH({
       this->data[0] = 1;
@@ -618,7 +674,7 @@ TEST_P(PrivateerTest, SimpleCompressionTest) {
   }
   priv->msync();
   size_t size = 0;
-  for (const auto& entry : std::filesystem::recursive_directory_iterator("datastore/blocks")) {
+  for (const auto& entry : std::filesystem::recursive_directory_iterator(this->datastore + /blocks")) {
     if (std::filesystem::is_regular_file(entry.path())) {
       size += std::filesystem::file_size(entry.path());
     }

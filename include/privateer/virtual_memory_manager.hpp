@@ -832,6 +832,10 @@ class virtual_memory_manager {
             exit(-1);
           }
           spdlog::info("virtual_memory_manager: handler() - ioctl-UFFDIO_WRITEPROTECT done");
+           // TODO: Single line below:
+           // Possible fix for hanging? This should ensure queue is enqued correctly in the UFFD thread.
+           // This is better for passing the Snapshot test cases, but there are still issues with page eviction.
+          events_queues[sub_region_index].remove_processed(fevent);
         }
         else{ // std::cout << "BEFORO Handler 420" << std::endl;
           spdlog::info("NOT WP FAULT");
@@ -962,7 +966,7 @@ class virtual_memory_manager {
               clean_lru[sub_region_index].push_front(block_address);
             }
             present_blocks[sub_region_index].insert(block_address);
-            //events_queues[sub_region_index].remove_processed(fevent);
+            events_queues[sub_region_index].remove_processed(fevent);
             is_valid_uffd(m_uffd);
             struct uffdio_range uffdio_range;
             uffdio_range.start = block_address;
@@ -974,7 +978,6 @@ class virtual_memory_manager {
             spdlog::info("virtual_memory_manager: handler() - ioctl-UFFDIO_WAKE done");
           }
         }
-        events_queues[sub_region_index].remove_processed(fevent);
         /* std::chrono::time_point<std::chrono::system_clock> */ ts = std::chrono::system_clock::now();
         // std::cout << "Page Fault Handled At: " << std::chrono::duration_cast<std::chrono::microseconds>(ts.time_since_epoch()).count() << std::endl;
         // handled_ts.push_back(std::chrono::duration_cast<std::chrono::microseconds>(ts.time_since_epoch()).count());
@@ -1160,6 +1163,7 @@ class virtual_memory_manager {
         printf("Page Fault Event Added to queue for address %ld sub_region_index %ld num_handling_threads %ld\n", fevent.address, sub_region_index, num_handling_threads);
         // auto start = std::chrono::high_resolution_clock::now();
         if (!events_queues[sub_region_index].found(fevent)){
+          std::cout << "NOT FOUND" << std::endl ;
           events_queues[sub_region_index].enqueue(fevent);
         }
         else {

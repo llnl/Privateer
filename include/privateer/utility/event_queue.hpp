@@ -55,27 +55,34 @@ namespace utility{
 
     template <typename T>
     void event_queue<T>::enqueue(T item) {
-      std::cout << "enquing\n";
       pthread_mutex_lock(&m_mutex);
-      std::cout << "Before push back\n";
+      SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "enqueue(), starting");
+      SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "enqueue(), m_queue.size() = {}", m_queue.size());
+      SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "enqueue(), m_processing.size() = {}", m_processing.size());
+      SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "enqueue(), before push back m_queue and m_processing");
       // bool found = (std::find(m_queue.begin(), m_queue.end(), item) != m_queue.end());
       // if (!found || (((utility::fault_event)item).address == 0)){
       m_queue.push_back(item);
       if (! ((fault_event) item).address == 0){
         m_processing.insert(item);
+      } else {
+        SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "enqueue(), address == 0");
       }
-      std::cout << "After push back\n";
+      SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "enqueue(), after push back m_queue and m_processing");
       pthread_cond_signal(&m_cond);
       // }
+      SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "enqueue(), m_queue.size() = {}", m_queue.size());
+      SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "enqueue(), m_processing.size() = {}", m_processing.size());
+      SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "enqueue(), done");
       pthread_mutex_unlock(&m_mutex);
-      std::cout << "done enquing\n";
     }
 
     template <typename T>
     T event_queue<T>::dequeue() {
-      std::cout << "dequing\n";
       pthread_mutex_lock(&m_mutex);
-
+      SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "dequeue(), starting");
+      SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "dequeue(), m_queue.size() = {}", m_queue.size());
+      SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "dequeue(), m_processing.size() = {}", m_processing.size());
       ++m_waiting_workers;
 
       while ( m_queue.size() == 0 ) {
@@ -88,16 +95,17 @@ namespace utility{
       --m_waiting_workers;
 
       auto item = m_queue.front();
-      std::cout << "Before pop front\n";
+      SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "dequeue(), before pop front");
       m_queue.pop_front();
-      std::cout << "After pop front\n";
+      SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "dequeue(), after pop front");
       /* if (! ((fault_event) item).address == 0){
         m_processing.insert(item);
       } */
       
-
+      SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "dequeue(), m_queue.size() = {}", m_queue.size());
+      SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "dequeue(), m_processing.size() = {}", m_processing.size());
+      SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "dequeue(), done");
       pthread_mutex_unlock(&m_mutex);
-      std::cout << "done dequing\n";
       return item;
     }
 
@@ -105,6 +113,8 @@ namespace utility{
     void event_queue<T>::remove_processed(T item) {
       pthread_mutex_lock(&m_mutex);
       m_processing.erase(item);
+      SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "remove_processed(), m_queue.size() = {}", m_queue.size());
+      SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "remove_processed(), m_processing.size() = {}", m_processing.size());
       pthread_mutex_unlock(&m_mutex);
     }
 
@@ -112,6 +122,8 @@ namespace utility{
     bool event_queue<T>::found(T item){
       bool found;
       pthread_mutex_lock(&m_mutex);
+      SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "found(), m_queue.size() = {}", m_queue.size());
+      SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "found(), m_processing.size() = {}", m_processing.size());
       found = (m_processing.find(item) != m_processing.end());// (std::find(m_queue.begin(), m_queue.end(), item) != m_queue.end());
       pthread_mutex_unlock(&m_mutex);
       return found;

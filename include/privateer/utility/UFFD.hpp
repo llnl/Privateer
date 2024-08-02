@@ -225,6 +225,7 @@ namespace utility{
     // START: Poll for page fault events
     while (true){
       printf("POLLING FROM %ld\n", (uint64_t) syscall(SYS_gettid)); // std::cout << "POLLING!!!" << std::endl;
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Polling from handler(), {}", (uint64_t) syscall(SYS_gettid));
       nready = poll(&pollfd[0], 3, -1);
       if (nready == -1){
         spdlog::error("UFFD: Error polling UFFD event - {}", strerror(errno));

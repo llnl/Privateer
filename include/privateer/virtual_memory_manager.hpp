@@ -396,6 +396,7 @@ class virtual_memory_manager {
     }
     
     ~virtual_memory_manager(){
+      SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "destructor, starting");
       if (close() !=0){
         spdlog::error("virtual_memory_manager: Image not closed appropriately");
         exit(-1);
@@ -412,6 +413,7 @@ class virtual_memory_manager {
         exit(-1);
       }
 #endif
+      SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "destructor, done");
     }
 
 #ifdef SIGACTION

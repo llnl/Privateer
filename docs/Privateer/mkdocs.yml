@@ -7,8 +7,8 @@ nav:
   - 'Getting Started': 'basics/getting_started.md'
 - 'ADVANCED BUILD':
   - 'Build Executables': 'advanced_build/cmake.md'
-  - 'Test Metall': 'advanced_build/test.md'
-- 'Metall 101':
+  - 'Test Privateer': 'advanced_build/test.md'
+- 'Privateer 101':
   - 'Introduction': 'detail/introduction.md'
   - 'API': 'detail/api.md'
 - 'ABOUT':

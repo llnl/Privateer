@@ -31,7 +31,7 @@ class PrivateerTest : public testing::TestWithParam<std::tuple<size_t, size_t, s
 
     void SetUp() override {
       std::filesystem::remove_all(this->datastore);
-      //spdlog::set_level(spdlog::level::trace);
+      spdlog::set_level(spdlog::level::trace);
       //spdlog::set_pattern("{\"id\":\"\",\"name\":\"%^%v%$\",\t\"cat\":\"CPP_APP\",\"pid\":\"%P\",\"tid\":\"%t\",\"ts\":\"%S%F\",\"dur\":\"\",\"ph\":\"X\",\"args\":{}}");
 
       char env[] = "PRIVATEER_MAX_MEM_BLOCKS=";
@@ -191,7 +191,7 @@ TEST_P(PrivateerTest, SortWrite) {
 
 TEST_P(PrivateerTest, MultipleWrite) {
   for (size_t i = 0; i < this->num_ints; i++) {
-      SPDLOG_TRACE("PrivateerTest: int - {}, val - {}", i, this->data[i]);
+    //SPDLOG_TRACE("PrivateerTest: int - {}, val - {}", i, this->data[i]);
     this->data[i] = i;
   }
 
@@ -205,12 +205,12 @@ TEST_P(PrivateerTest, MultipleWrite) {
     this->data = (size_t*) priv->open(nullptr, "v0");
     spdlog::info("PrivateerTest: opened datastore");
     for (size_t i = 0; i < this->num_ints; i++) {
-      SPDLOG_TRACE("PrivateerTest: int - {}, val - {} EXPECT_EQ", i, this->data[i]);
+      //SPDLOG_TRACE("PrivateerTest: int - {}, val - {} EXPECT_EQ", i, this->data[i]);
       EXPECT_EQ(this->data[i], i);
     }
-      SPDLOG_TRACE("PrivateerTest: EXPECT_EQ done");
+      //SPDLOG_TRACE("PrivateerTest: EXPECT_EQ done");
     for (size_t i = 0; i < this->num_ints; i++) {
-      SPDLOG_TRACE("PrivateerTest: int - {}, val - {}", i, this->data[i]);
+      //SPDLOG_TRACE("PrivateerTest: int - {}, val - {}", i, this->data[i]);
       this->data[i] = (this->num_ints - 1) - i;
     }
     priv->msync();
@@ -219,12 +219,12 @@ TEST_P(PrivateerTest, MultipleWrite) {
     priv = new Privateer(Privateer::OPEN, this->datastore);
     this->data = (size_t*) priv->open(nullptr, "v0");
     for (size_t i = 0; i < this->num_ints; i++) {
-      SPDLOG_TRACE("PrivateerTest: int - {}, val - {} EXPECT_EQ", i, this->data[i]);
+      //SPDLOG_TRACE("PrivateerTest: int - {}, val - {} EXPECT_EQ", i, this->data[i]);
       EXPECT_EQ(this->data[i], (this->num_ints - 1) - i);
     }
     for (size_t i = 0; i < this->num_ints; i++) {
       this->data[i] = i;
-      SPDLOG_TRACE("PrivateerTest: int - {}, val - {}", i, this->data[i]);
+      //SPDLOG_TRACE("PrivateerTest: int - {}, val - {}", i, this->data[i]);
     }
     priv->msync();
   }

@@ -127,7 +127,7 @@ message(STATUS "Configuring with spdlog")
 
   find_package(spdlog CONFIG REQUIRED)
   TARGET_LINK_LIBRARIES(privateer-static spdlog::spdlog)
-  #add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
+  add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
 #endif()
 # --------------------------------------------------
 

@@ -1133,6 +1133,9 @@ class virtual_memory_manager {
         // delete [] blocks_locks;
         delete m_block_storage;
         m_region_start_address = nullptr;
+#ifdef USERFAULTFD
+        stop_handler_thread();
+#endif
         return 0;
       }
 

@@ -148,7 +148,7 @@ public:
    * 
    */
   ~Privateer(){
-      spdlog::info("Privateer: Destructor");
+    spdlog::info("Privateer: Destructor - starting");
     #ifdef SIGACTION
     struct sigaction sa;
     sa.sa_flags = SA_RESETHAND;

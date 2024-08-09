@@ -30,7 +30,6 @@
 #include "utility/compression.hpp"
 #endif
 #include "spdlog/spdlog.h"
-#define OUT_TRACE (MSG) std::cout << MSG << std::endl;
 
 class block_storage
 {
@@ -75,13 +74,13 @@ class block_storage
 
 
     std::string store_block(void* buffer, bool write_to_file, uint64_t block_index){
-      spdlog::info("block_storage: store_block()");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "block_storage: store_block()");
       std::string block_hash = "";
       bool on_stash = is_multi_tiered();
       if (on_stash){
         std::string block_hash = store_block(buffer, write_to_file, block_index, true, "");
         if (block_hash.empty()){
-          spdlog::error("block_storage: Error storing block with index: {}", block_index);
+          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error storing block with index: {}", block_index);
           return block_hash;
         }
         on_stash = false;
@@ -94,7 +93,7 @@ class block_storage
     }
 
     bool stash_block(void* block_start, uint64_t block_index){
-      spdlog::info("block_storage: stash_block()");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "block_storage: stash_block()");
       // Reusing stash file (mutable)
       std::string block_UUID = "";
       std::string block_temp_path = "";
@@ -113,33 +112,33 @@ class block_storage
       int open_flags = file_exists ? O_RDWR : O_CREAT | O_RDWR;
       block_fd = ::open(block_temp_path.c_str(), open_flags,  S_IRUSR | S_IWUSR);
       if (block_fd == -1){
-        spdlog::error("block_storage: Error opening stash file descriptor - {}", strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error opening stash file descriptor - {}", strerror(errno));
         return false;
       }
       if (!file_exists){
         int trunc_status = ftruncate(block_fd, block_granularity);
         if (trunc_status == -1){
-          spdlog::error("block_storage: Error sizing file - {}", strerror(errno));
+          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error sizing file - {}", strerror(errno));
           return false;
         }
       }
       if (pwrite(block_fd, block_start, block_granularity, 0) == -1){
-        spdlog::error("block_storage: Error writing block to stash file - {}", strerror(errno));
-        spdlog::error("block_start: {}", block_start);
-        spdlog::error("block_granularity: {}", block_granularity);
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error writing block to stash file - {}", strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_start: {}", block_start);
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_granularity: {}", block_granularity);
         return false;
       }
       if (close(block_fd) == -1){
-        spdlog::error("block_storage: Error closing stash file: {}", strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error closing stash file: {}", strerror(errno));
         return false;
       }
       return true;
     }
 
     bool unstash_block(uint64_t block_index){
-      spdlog::info("block_storage: unstash_block()");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "block_storage: unstash_block()");
       if (stash_block_ids.find(block_index) == stash_block_ids.end()){
-        spdlog::error("block_storage: Error unstashing block with index = {}, No backing stash block", block_index);
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error unstashing block with index = {}, No backing stash block", block_index);
         return false;
       }
       std::string block_UUID = stash_block_ids[block_index];
@@ -154,25 +153,25 @@ class block_storage
     }
 
     std::string commit_stash_block(uint64_t block_index){
-      spdlog::info("block_storage: commit_stash_block()");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "block_storage: commit_stash_block()");
       if (stash_block_ids.find(block_index) == stash_block_ids.end()){
-        spdlog::error("block_storage: Error - block with index {} has no backing stash file", block_index);
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error - block with index {} has no backing stash file", block_index);
         exit(-1);
       }
       std::string block_stash_path = stash_directory + "/" + stash_block_ids[block_index];
       int block_fd = ::open(block_stash_path.c_str(), O_RDONLY);
       if (block_fd == -1){
-        spdlog::error("block_storage: Error opening stash file - {}", strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error opening stash file - {}", strerror(errno));
         exit(-1);
       }
       void* temp_buffer = mmap(nullptr, block_granularity, PROT_READ, MAP_PRIVATE, block_fd, 0);
       if (temp_buffer == MAP_FAILED){
-        spdlog::error("block_storage: Error mmapping temp buffer for stash block - {}", strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error mmapping temp buffer for stash block - {}", strerror(errno));
         exit(-1);
       }
       std::string block_hash = utility::compute_hash((char*) temp_buffer, block_granularity);
       if (close(block_fd) == -1){
-        spdlog::error("block_storage: Error closing file - {}", strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error closing file - {}", strerror(errno));
         exit(-1);
       }
       // Get block subdirectory
@@ -189,7 +188,7 @@ class block_storage
           if (utility::file_exists(final_filename.c_str())){
             int remove_status = remove(stash_filename.c_str());
             if (remove_status != 0){
-              spdlog::error("block_storage: Error removing stash file");
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error removing stash file");
               return "";
             }
             stash_block_ids.erase(block_index);
@@ -197,7 +196,7 @@ class block_storage
               // storing to only base_directory since stash has already been stored
               block_hash = store_block(temp_buffer, true, block_index, false, block_hash);
               if (block_hash.empty()){
-                spdlog::error("block_storage: Error committing stash block with index {} to base path", block_index);
+                SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error committing stash block with index {} to base path", block_index);
                 return "";
               }
               // store block must have two versions ?? STOPPED HERE
@@ -205,15 +204,15 @@ class block_storage
             return block_hash;
           }
           else{
-            spdlog::error("block_storage: Error renaming file {}", strerror(errno));
-            spdlog::error("Stash file name = {}", stash_filename);
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error renaming file {}", strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Stash file name = {}", stash_filename);
             return "";
           }
         }
         else{
           block_hash = store_block(temp_buffer, true, block_index, false, block_hash);
           if (block_hash.empty()){
-            spdlog::error("block_storage: Error committing stash block with index {} to base path", block_index);
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error committing stash block with index {} to base path", block_index);
             return "";
           }
           stash_block_ids.erase(block_index);
@@ -223,12 +222,12 @@ class block_storage
       else{
         int remove_status = remove(stash_filename.c_str());
         if (remove_status != 0){
-          spdlog::error("block_storage: Error removing stash file");
+          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error removing stash file");
           return "";
         }
         block_hash = store_block(temp_buffer, true, block_index, false, block_hash);
         if (block_hash.empty()){
-          spdlog::error("block_storage: Error committing stash block with index {} to base path", block_index);
+          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error committing stash block with index {} to base path", block_index);
           return "";
         }
         stash_block_ids.erase(block_index);
@@ -244,7 +243,7 @@ class block_storage
           std::string stash_block_path = stash_subdir + "/" + block_hash;
           std::string base_block_path = base_subdir + "/" + block_hash;
           if (!copy_to_stash(base_block_path, stash_block_path)){
-            spdlog::error("block_storage: Error copying block with index {} and ID {} From base directory to stash directory", block_index, block_hash);
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error copying block with index {} and ID {} From base directory to stash directory", block_index, block_hash);
             exit(-1);
           } // TODO: Copy only the file not all dir.
           stash_committed_block_ids.insert(std::pair<uint64_t,std::string>(block_index, block_hash));
@@ -274,7 +273,7 @@ class block_storage
     }
 
     bool copy_to_stash(std::string base_block, std::string stash_block){
-      spdlog::info("block_storage: copy_to_stash()");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "block_storage: copy_to_stash()");
       if(!utility::file_exists(stash_block.c_str())){
         return utility::copy_file(base_block.c_str(), stash_block.c_str(), false);
       }
@@ -287,11 +286,11 @@ class block_storage
       std::ifstream granularity_file;
       granularity_file.open(granularity_file_name);
       if (!granularity_file.is_open()){
-        spdlog::error("block_storage: Error opening block granularity metadata");
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error opening block granularity metadata");
         exit(-1);
       }
       if (!std::getline(granularity_file, granularity_string)){
-        spdlog::error("block_storage: Error opening block granularity metadata");
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error opening block granularity metadata");
         exit(-1);
       }
       return std::stol(granularity_string);
@@ -299,14 +298,14 @@ class block_storage
 
   private:
     void create(std::string base_directory_path, std::string stash_directory_path, size_t block_granularity_arg){
-      spdlog::info("block_storage: create()");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "block_storage: create()");
       // std::cout << "stash directory path at create() " << stash_directory_path << std::endl;
       stash_directory = stash_directory_path;
       if (!stash_directory.empty()){
         // Create stash directory
         if (!utility::directory_exists(stash_directory_path.c_str())){
           if (!utility::create_directory(stash_directory_path.c_str())){
-            spdlog::error("block_storage: Failed to create stash directory");
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Failed to create stash directory");
             exit(-1);
           }
         }
@@ -325,7 +324,7 @@ class block_storage
       if (!utility::directory_exists(base_directory_path.c_str())){
         // create blocks directory and save block_granularity in _metadata
         if (!utility::create_directory(base_directory.c_str())){
-          spdlog::error("block_storage: Failed to create blocks directory");
+          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Failed to create blocks directory");
           exit(-1);
         }
         std::string granularity_file_name = base_directory + "/_granularity";
@@ -335,26 +334,26 @@ class block_storage
         granularity_file.close();
       }
       /* else{
-        spdlog::error("block_storage: Blocks directory already exists");
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Blocks directory already exists");
         exit(-1);
       } */
-      spdlog::info("block_storage: create() done");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "block_storage: create() done");
     }
 
     void open(std::string base_directory_path, std::string stash_directory_path){
-      spdlog::info("block_storage: open()");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "block_storage: open()");
       stash_directory = stash_directory_path;
       if (!stash_directory.empty()){
         // Create stash directory
         if (!utility::directory_exists(stash_directory_path.c_str())){
           if (!utility::create_directory(stash_directory_path.c_str())){
-            spdlog::error("block_storage: Failed to create stash directory");
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Failed to create stash directory");
             exit(-1);
           }
         }
       }
       if(!utility::directory_exists(base_directory_path.c_str())){
-        spdlog::error("block_storage: Blocks directory does not exist");
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Blocks directory does not exist");
         exit(-1);
       }
       // std::cout << "block_storage: Base directory path arg = " << base_directory_path << std::endl;
@@ -368,11 +367,11 @@ class block_storage
       std::ifstream granularity_file;
       granularity_file.open(granularity_file_name);
       if (!granularity_file.is_open()){
-        spdlog::error("block_storage: Error opening block granularity metadata");
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error opening block granularity metadata");
         exit(-1);
       }
       if (!std::getline(granularity_file, granularity_string)){
-        spdlog::error("block_storage: Error reading block granularity metadata");
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error reading block granularity metadata");
         exit(-1);
       }
       block_granularity = std::stol(granularity_string);
@@ -388,7 +387,7 @@ class block_storage
       std::string subdir_name = base_path + "/" + std::to_string(subdir_index);
       if (!utility::directory_exists(subdir_name.c_str())){
         if (!utility::create_directory(subdir_name.c_str())){
-          spdlog::error("block_storage: Failed to create blocks subdirectory");
+          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Failed to create blocks subdirectory");
           exit(-1);
         }
       }
@@ -397,7 +396,7 @@ class block_storage
     }
 
     std::string store_block(void* buffer, bool write_to_file, uint64_t block_index, bool on_stash, std::string pre_computed_hash){
-      spdlog::info("block_storage: store_block()");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "block_storage: store_block()");
       // std::cout << "BLOCK FD: " << block_fd << " Process ID: " << getpid() << std::endl;
 
       std::string block_hash = pre_computed_hash;
@@ -429,12 +428,12 @@ class block_storage
           std::cout << "block_granularity: " << block_granularity << std::endl;*/
           int trunc_status = ftruncate(block_fd, compressed_block_size);
           if (trunc_status == -1){
-            spdlog::error("block_storage: Error sizing temporary file to compressed size");
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error sizing temporary file to compressed size");
             exit(-1);
           }
           size_t written = pwrite(block_fd ,write_buffer, compressed_block_size, 0);
           if (written == -1){
-            spdlog::error("block_storage: Error writing to file - {}", strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error writing to file - {}", strerror(errno));
             // store_block_mutex->unlock();
             return "";
           }
@@ -442,7 +441,7 @@ class block_storage
           #else
           size_t written = pwrite(block_fd ,buffer, block_granularity, 0);
           if (written == -1){
-            spdlog::error("block_storage: Error writing to file - {}", strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error writing to file - {}", strerror(errno));
             // store_block_mutex->unlock();
             return "";
           }
@@ -456,22 +455,22 @@ class block_storage
           if (utility::file_exists(final_filename.c_str())){
             int remove_status = remove(temporary_filename.c_str());
             if (remove_status != 0){
-              spdlog::error("block_storage: Error removing temporary file");
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error removing temporary file");
               return "";
             }
             if (::close(block_fd) == -1){
-              spdlog::error("block_storage: Error closing file descriptor for block: {} - {}", block_index, strerror(errno));
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error closing file descriptor for block: {} - {}", block_index, strerror(errno));
               exit(-1);
             }
             return block_hash;
           }
           else{
-            spdlog::error("block_storage: Error renaming file {}", strerror(errno));
-            spdlog::error("Temporary file name = {}", temporary_filename);
-            spdlog::error("Final file name = {}", final_filename);
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error renaming file {}", strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Temporary file name = {}", temporary_filename);
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Final file name = {}", final_filename);
           }
           if (::close(block_fd) == -1){
-            spdlog::error("block_storage: Error closing file descriptor for block: {} - {}", block_index, strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error closing file descriptor for block: {} - {}", block_index, strerror(errno));
             exit(-1);
           }
           return "";
@@ -480,16 +479,16 @@ class block_storage
       else{
         int remove_status = remove(temporary_filename.c_str());
         if (remove_status != 0){
-          spdlog::error("block_storage: Error removing temporary file");
+          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error removing temporary file");
           if (::close(block_fd) == -1){
-            spdlog::error("block_storage: Error closing file descriptor for block: {} - {}", block_index, strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error closing file descriptor for block: {} - {}", block_index, strerror(errno));
             exit(-1);
           }
           return "";
         }
       }
       if (::close(block_fd) == -1){
-        spdlog::error("block_storage: Error closing file descriptor for block: {} - {}", block_index, strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error closing file descriptor for block: {} - {}", block_index, strerror(errno));
         exit(-1);
       }
       return block_hash;
@@ -516,7 +515,7 @@ class block_storage
       // std::cout << "block_storage: temporary_file_name_template =" << temporary_file_name_template << std::endl;
       int fd = mkstemp(temporary_file_name_template);
       if (fd == -1){
-        spdlog::error("block_storage: Error creating temporary file {}", strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error creating temporary file {}", strerror(errno));
         exit(-1);
       }
       // unlink(temporary_file_name_template);
@@ -525,7 +524,7 @@ class block_storage
       // std::cout << "NOT USING COMPRESSION" << std::endl;
       int trunc_status = ftruncate(fd, block_granularity);
       if (trunc_status == -1){
-        spdlog::error("block_storage: Error sizing temporary file");
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error sizing temporary file");
         exit(-1);
       }
       #endif

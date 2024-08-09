@@ -4,7 +4,14 @@
 #include <filesystem>
 #include <mpi.h>
 #include <gtest/gtest.h>
-#include "spdlog/spdlog.h"
+
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/basic_file_sink.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/fmt/fmt.h>
+#include <spdlog/formatter.h>
+#include <spdlog/details/log_msg.h>
+#include "spdlog/pattern_formatter.h"
 
 #include "../include/privateer/privateer.hpp"
 #include "../test_apps/utility/random.hpp"
@@ -21,6 +28,20 @@ std::vector<size_t> get_random_offsets(size_t region_start, size_t region_end, s
   return random_values;
 }
 
+class my_formatter_flag : public spdlog::custom_flag_formatter {
+public:
+    void format(const spdlog::details::log_msg &, const std::tm &, spdlog::memory_buf_t &dest) override
+    {
+        std::string some_txt = "custom-flag";
+        dest.append(some_txt.data(), some_txt.data() + some_txt.size());
+    }
+
+    std::unique_ptr<custom_flag_formatter> clone() const override
+    {
+        return spdlog::details::make_unique<my_formatter_flag>();
+    }
+};
+
 class PrivateerTest : public testing::TestWithParam<std::tuple<size_t, size_t, size_t, size_t, size_t, size_t, size_t>> {
   public:
     Privateer* priv = nullptr;
@@ -31,8 +52,28 @@ class PrivateerTest : public testing::TestWithParam<std::tuple<size_t, size_t, s
 
     void SetUp() override {
       std::filesystem::remove_all(this->datastore);
-      spdlog::set_level(spdlog::level::trace);
-      //spdlog::set_pattern("{\"id\":\"\",\"name\":\"%^%v%$\",\t\"cat\":\"CPP_APP\",\"pid\":\"%P\",\"tid\":\"%t\",\"ts\":\"%S%F\",\"dur\":\"\",\"ph\":\"X\",\"args\":{}}");
+      //spdlog::set_level(spdlog::level::trace);
+      //*
+      // File sink with json pattern
+      auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("logs/log.txt", true);
+      file_sink->set_pattern("{\"id\":\"\",\"name\":\"%^%v%$\",\t\"cat\":\"CPP_APP\",\"pid\":\"%P\",\"tid\":\"%t\",\"ts\":\"%S%F\",\"dur\":\"%u\",\"ph\":\"X\",\"args\":{}}");
+
+      // Console sink with default pattern
+      auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+
+      // Create a logger with both sinks
+      spdlog::sinks_init_list sink_list = {file_sink, console_sink};
+      auto logger = std::make_shared<spdlog::logger>("multi_sink", sink_list);
+
+      // Set the logger as the default logger
+      spdlog::set_default_logger(logger);
+      //*/
+
+      /*
+      auto formatter = std::make_unique<spdlog::pattern_formatter>();
+      formatter->add_flag<my_formatter_flag>('*').set_pattern("[%n] [%*] [%^%l%$] %v");
+      spdlog::set_formatter(std::move(formatter));
+      //*/
 
       char env[] = "PRIVATEER_MAX_MEM_BLOCKS=";
       char block_num[10];
@@ -399,47 +440,46 @@ TEST_P(PrivateerTest, IncrementalRandomSparseWrite_Threaded) {
 
 TEST_P(PrivateerTest, SingleSnapshot) {
   size_t start = 0;
+  size_t middle_to_start = this->num_ints / 4;
   size_t middle = this->num_ints / 2;
-  size_t middle_to_end = ( this->num_ints / 2 ) + ( this->num_ints / 4 );
   size_t end = this->num_ints - 1;
   this->data[start] = 7;
-  this->data[middle] = 8;
-  this->data[middle_to_end] = 9;
+  this->data[middle_to_start] = 8;
+  this->data[middle] = 9;
   this->data[end] = 10;
   EXPECT_EQ(this->data[start], 7);
-  EXPECT_EQ(this->data[middle], 8);
-  EXPECT_EQ(this->data[middle_to_end], 9);
+  EXPECT_EQ(this->data[middle_to_start], 8);
+  EXPECT_EQ(this->data[middle], 9);
   EXPECT_EQ(this->data[end], 10);
   std::cout << "written to: " << end << std::endl;
   priv->snapshot(("v1"));
   this->data[start] = 8;
-  this->data[middle] = 9;
-  this->data[middle_to_end] = 10;
+  this->data[middle_to_start] = 9;
+  this->data[middle] = 10;
   this->data[end] = 11;
   EXPECT_EQ(this->data[start], 8);
-  EXPECT_EQ(this->data[middle], 9);
-  EXPECT_EQ(this->data[middle_to_end], 10);
+  EXPECT_EQ(this->data[middle_to_start], 9);
+  EXPECT_EQ(this->data[middle], 10);
   EXPECT_EQ(this->data[end], 11);
   std::cout << "written to: " << end << std::endl;
-  priv->msync();
   priv->snapshot(("v2"));
   delete priv;
 
   priv = new Privateer(Privateer::OPEN, this->datastore);
   this->data = (size_t*) priv->open_read_only(nullptr, "v0");
   EXPECT_EQ(this->data[start], 8);
-  EXPECT_EQ(this->data[middle], 9);
-  EXPECT_EQ(this->data[middle_to_end], 10);
+  EXPECT_EQ(this->data[middle_to_start], 9);
+  EXPECT_EQ(this->data[middle], 10);
   EXPECT_EQ(this->data[end], 11);
   this->data = (size_t*) priv->open_read_only(nullptr, "v1");
   EXPECT_EQ(this->data[start], 7);
-  EXPECT_EQ(this->data[middle], 8);
-  EXPECT_EQ(this->data[middle_to_end], 9);
+  EXPECT_EQ(this->data[middle_to_start], 8);
+  EXPECT_EQ(this->data[middle], 9);
   EXPECT_EQ(this->data[end], 10);
   this->data = (size_t*) priv->open_read_only(nullptr, "v2");
   EXPECT_EQ(this->data[start], 8);
-  EXPECT_EQ(this->data[middle], 9);
-  EXPECT_EQ(this->data[middle_to_end], 10);
+  EXPECT_EQ(this->data[middle_to_start], 9);
+  EXPECT_EQ(this->data[middle], 10);
   EXPECT_EQ(this->data[end], 11);
 }
 
@@ -642,9 +682,20 @@ TEST_P(PrivateerTest, LowerBoundOutOfRange) {
 }
 
 TEST_P(PrivateerTest, UpperBoundOutOfRange) {
-  std::cout << "num_ints: " << this->num_ints << std::endl;
-  std::cout << "size_bytes: " << this->size_bytes << std::endl;
-  std::cout << "size_t size: " << sizeof(size_t) << std::endl;
+  EXPECT_DEATH({
+      this->data[this->num_ints] = 1;
+    }, "Fault address out of range");
+}
+
+TEST_P(PrivateerTest, LowerBoundOutOfRangeAfterInitialFault) {
+  this->data[0] = 1;
+  EXPECT_DEATH({
+      this->data[-1] = 1;
+    }, "Fault address out of range");
+}
+
+TEST_P(PrivateerTest, UpperBoundOutOfRangeAfterInitialFault) {
+  this->data[this->num_ints - 1] = 1;
   EXPECT_DEATH({
       this->data[this->num_ints] = 1;
     }, "Fault address out of range");

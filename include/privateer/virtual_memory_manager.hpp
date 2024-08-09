@@ -51,7 +51,7 @@ class virtual_memory_manager {
   public:
     virtual_memory_manager(void* start_address, size_t region_max_capacity, size_t block_size,
                            std::string version_metadata_path, std::string blocks_path, std::string stash_path, bool allow_overwrite){
-      spdlog::info("virtual_memory_manager()");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager()");
 #ifdef USERFAULTFD
       // printf("Waiting on handler_mutex_global create Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
       const std::lock_guard<std::mutex> lock(handler_mutex_global);
@@ -62,7 +62,7 @@ class virtual_memory_manager {
       // Verify system page alignment
       size_t pagesize = sysconf(_SC_PAGE_SIZE);
       if ( ((uint64_t) start_address) % pagesize != 0){
-        spdlog::error("virtual_memory_manager: Start_address is not system-page aligned");
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Start_address is not system-page aligned");
         exit(-1);
       }
 
@@ -72,28 +72,28 @@ class virtual_memory_manager {
       if (std::isnan(num_handling_threads) || num_handling_threads == 0){
         num_handling_threads = NUM_HANDLING_THREADS_DEFAULT;
       }
-      spdlog::info("num_handling_threads: {}", num_handling_threads);
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "num_handling_threads: {}", num_handling_threads);
 
       // Set num msync threads
       num_msync_threads = utility::get_environment_variable("NUM_MSYNC_THREADS");
       if (std::isnan(num_msync_threads) || num_msync_threads == 0){
         num_msync_threads = NUM_MSYNC_THREADS_DEFAULT;
       }
-      spdlog::info("num_msync_threads: {}", num_msync_threads);
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "num_msync_threads: {}", num_msync_threads);
 #endif
 
       /* if (region_max_capacity % num_blocks == 0){
          m_block_size = region_max_capacity / num_blocks;
          }
          else{
-         spdlog::error("virtual_memory_manager: PRIVATEER_NUM_BLOCKS is set, but region capacity is not divisible by it");
+         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: PRIVATEER_NUM_BLOCKS is set, but region capacity is not divisible by it");
          exit(-1);
          } */
         
       // Verify multiple of system's page size
       /* if (m_block_size % pagesize != 0){
 
-         spdlog::error("virtual_memory_manager: block_size must be multiple of system page size ({})", pagesize);
+         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: block_size must be multiple of system page size ({})", pagesize);
          exit(-1);
          } */
       // Verity region capacity is multiple of block size
@@ -103,10 +103,10 @@ class virtual_memory_manager {
         // Round capacity to nearest larger multiple of block size
         region_max_capacity = ((region_max_capacity / m_block_size) + 1) * m_block_size;
         /*
-          spdlog::error("virtual_memory_manager: region_max_capacity = {}", region_max_capacity);
-          spdlog::error("virtual_memory_manager: m_block_size = {}", m_block_size);
+          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: region_max_capacity = {}", region_max_capacity);
+          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: m_block_size = {}", m_block_size);
           if (region_max_capacity > m_block_size){
-          spdlog::error("virtual_memory_manager: region size must be a non-zero multiple of block size");
+          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: region size must be a non-zero multiple of block size");
           exit(-1);
           }
           else{
@@ -154,7 +154,7 @@ class virtual_memory_manager {
 #endif
 
       if (m_region_start_address == MAP_FAILED){
-        spdlog::error("virtual_memory_manager: mmap-ing region starting address - {}", strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: mmap-ing region starting address - {}", strerror(errno));
         exit(-1);
       }
 
@@ -185,7 +185,7 @@ class virtual_memory_manager {
       /* pthread_mutex_init(&handler_mutex, NULL);
 
          if (pipe2(uffd_pipe, 0) < 0){
-         spdlog::error("Virtual Memory Manager: Error Userfaultfd pipe failed - {}", strerror(errno));
+         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Virtual Memory Manager: Error Userfaultfd pipe failed - {}", strerror(errno));
          exit(-1);
          } */
       sub_regions_mutex_list = std::vector<std::mutex>(num_handling_threads);
@@ -207,17 +207,17 @@ class virtual_memory_manager {
       // setup zero page and temp buffer
       char *tmp;
       if (posix_memalign((void**)&tmp, m_block_size, m_block_size)) {
-        spdlog::error("virtual_memory_manager: Error posix_memalign - {}", strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error posix_memalign - {}", strerror(errno));
       }
       zero_page = mmap((void *) tmp, m_block_size, PROT_READ | PROT_WRITE,
                        MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED | MAP_POPULATE, -1, 0);
       if (zero_page == MAP_FAILED){
-        spdlog::error("virtual_memory_manager: Error mmap zero page ", strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error mmap zero page ", strerror(errno));
         exit(-1);
       }
       temp_buffer =  mmap(nullptr, m_block_size * num_handling_threads, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
       if (temp_buffer == MAP_FAILED){
-        spdlog::error("virtual_memory_manager: Error mmap zero page ", strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error mmap zero page ", strerror(errno));
         exit(-1);
       }
       // fault_events_queue = new utility::event_queue<utility::fault_event>(num_handling_threads);
@@ -227,10 +227,10 @@ class virtual_memory_manager {
     }
 
     virtual_memory_manager(void* addr, std::string version_metadata_path, std::string stash_path, bool read_only){
-      spdlog::info("virtual_memory_manager()");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager()");
 #ifdef USERFAULTFD
       const std::lock_guard<std::mutex> lock(handler_mutex_global);
-      spdlog::info("virtual_memory_manager: Acquired virtual handler_mutex_global, open Thread ID: {}", (uint64_t) syscall(SYS_gettid));
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: Acquired virtual handler_mutex_global, open Thread ID: {}", (uint64_t) syscall(SYS_gettid));
       // std::cout << "VMM OPENING\n";
 
       num_handling_threads = utility::get_environment_variable("NUM_HANDLING_THREADS");
@@ -249,7 +249,7 @@ class virtual_memory_manager {
 
       // std::cout << "Opening :)" << std::endl;
       if (read_only){
-        spdlog::info("virtual_memory_manager: Read-only!");
+        SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: Read-only!");
       }
 #endif
 
@@ -261,10 +261,10 @@ class virtual_memory_manager {
       
       blocks_path_file.open(blocks_path_file_name);
       if (!blocks_path_file.is_open()){
-        spdlog::error("virtual_memory_manager: Error opening blocks file path at {}", blocks_path_file_name);
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error opening blocks file path at {}", blocks_path_file_name);
       }
       if (!std::getline(blocks_path_file, blocks_dir_path)){
-        spdlog::error("virtual_memory_manager: Error reading blocks path file");
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading blocks path file");
       } 
       m_block_storage = new block_storage(blocks_dir_path, stash_path);
       m_block_size = m_block_storage->get_block_granularity();
@@ -295,7 +295,7 @@ class virtual_memory_manager {
 #endif
 
       if (m_region_start_address == MAP_FAILED){
-        spdlog::error("virtual_memory_manager: mmap error - {}", strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: mmap error - {}", strerror(errno));
         exit(-1);
       }
       
@@ -305,7 +305,7 @@ class virtual_memory_manager {
       char* metadata_content = new char[metadata_size];
       size_t read = ::pread(metadata_fd, (void*) metadata_content, metadata_size, 0);
       if (read == -1){
-        spdlog::error("virtual_memory_manager: Error reading metadata - {}", strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading metadata - {}", strerror(errno));
         exit(-1);
       }
       // std::cout << "Privateer Open 264" << std::endl;
@@ -352,7 +352,7 @@ class virtual_memory_manager {
 /* pthread_mutex_init(&handler_mutex, NULL);
    uffd_active = true;
    if (pipe2(uffd_pipe, 0) < 0){
-   spdlog::error("virtual_memory_manager: Error Userfaultfd pipe failed - {}", strerror(errno));
+   SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error Userfaultfd pipe failed - {}", strerror(errno));
    exit(-1);
    } // std::cout << "Privateer Open 304" << std::endl; */
       sub_regions_mutex_list = std::vector<std::mutex>(num_handling_threads);
@@ -373,18 +373,18 @@ class virtual_memory_manager {
       // setup zero page
       char *tmp;
       if (posix_memalign((void**)&tmp, m_block_size, m_block_size)) {
-        spdlog::error("virtual_memory_manager: Error posix_memalign - {}", strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error posix_memalign - {}", strerror(errno));
       }
       zero_page = mmap((void *) tmp, m_block_size, PROT_READ | PROT_WRITE,
                        MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED | MAP_POPULATE, -1, 0);
       if (zero_page == MAP_FAILED){
-        spdlog::error("virtual_memory_manager: Error mmap zero page - {}", strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error mmap zero page - {}", strerror(errno));
         exit(-1);
       }
 
       temp_buffer =  mmap(nullptr, m_block_size * num_handling_threads, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
       if (temp_buffer == MAP_FAILED){
-        spdlog::error("virtual_memory_manager: Error mmap zero page - {}", strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error mmap zero page - {}", strerror(errno));
         exit(-1);
       }
 
@@ -398,18 +398,18 @@ class virtual_memory_manager {
     ~virtual_memory_manager(){
       SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "destructor, starting");
       if (close() !=0){
-        spdlog::error("virtual_memory_manager: Image not closed appropriately");
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Image not closed appropriately");
         exit(-1);
       }
 
 #ifdef USERFAULTFD
       if (munmap(zero_page, m_block_size) == -1){
-        spdlog::error("virtual_memory_manager: Error unmapping temporary buffer - {}", strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error unmapping temporary buffer - {}", strerror(errno));
         exit(-1);
       }
 
       if (munmap(temp_buffer, m_block_size * num_handling_threads) == -1){
-        spdlog::error("virtual_memory_manager: Error unmapping temporary buffer - {}", strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error unmapping temporary buffer - {}", strerror(errno));
         exit(-1);
       }
 #endif
@@ -419,16 +419,16 @@ class virtual_memory_manager {
 #ifdef SIGACTION
     void msync(){
       // 1) Write dirty_lru
-      spdlog::info("virtual_memory_manager: msync() - Msync Write Dirty LRU");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: msync() - Msync Write Dirty LRU");
       std::vector<uint64_t> dirty_lru_vector(dirty_lru.begin(), dirty_lru.end());
 #pragma omp parallel for
 #endif
 
 #ifdef USERFAULTFD
       void msync(){
-        spdlog::info("virtual_memory_manager: msync()");
+        SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: msync()");
         for (int i = 0 ; i < num_handling_threads; i++){
-          spdlog::info("virtual_memory_manager: msync({})", i);
+          SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: msync({})", i);
           msync(i);
         }
       }
@@ -436,7 +436,7 @@ class virtual_memory_manager {
       void msync(int sub_region_index){
         // 1) Write dirty_lru
         const std::lock_guard<std::mutex> lock(handler_mutex_global);
-        spdlog::info("virtual_memory_manager: msync() - Msync Write Dirty LRU");
+        SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: msync() - Msync Write Dirty LRU");
         // std::cout << "size of dirty LRU: "<< dirty_lru.size() << std::endl;
         std::vector<uint64_t> dirty_lru_vector(dirty_lru[sub_region_index].begin(), dirty_lru[sub_region_index].end());
         /* int num_threads = omp_get_num_threads() / num_handling_threads;
@@ -452,7 +452,7 @@ class virtual_memory_manager {
           bool write_block_fd = true;
           std::string block_hash = block_storage_local.store_block(block_address, write_block_fd, block_index);
           if (block_hash.empty()){
-            spdlog::error("virtual_memory_manager: Error storing block with index {}", block_index);
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error storing block with index {}", block_index);
             exit(-1);
           }
 
@@ -461,7 +461,7 @@ class virtual_memory_manager {
           // Change mprotect to read_only
           int mprotect_stat = mprotect(block_address, m_block_size, PROT_READ);
           if (mprotect_stat == -1){
-            spdlog::error("virtual_memory_manager: mprotect error for block with address: {} - {}", (uint64_t) block_address, strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: mprotect error for block with address: {} - {}", (uint64_t) block_address, strerror(errno));
           }
 #pragma omp critial
           {
@@ -472,7 +472,7 @@ class virtual_memory_manager {
         dirty_lru.clear();
 
         // 2) Commit stashed blocks
-        spdlog::info("virtual_memory_manager: msync() - Msync Commit Stashed Blocks");
+        SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: msync() - Msync Commit Stashed Blocks");
         std::vector<uint64_t> stash_vector(stash_set.begin(), stash_set.end());
 #endif
 
@@ -481,20 +481,18 @@ class virtual_memory_manager {
         {
           // std::cout << "wp-ing block\n";
           is_valid_uffd(m_uffd);
-          // TODO: Fix hanging issue after msync()
           //*
           struct uffdio_writeprotect uffdio_writeprotect;
           uffdio_writeprotect.range.start = (uint64_t) block_address;
           uffdio_writeprotect.range.len = (uint64_t) m_block_size;
           uffdio_writeprotect.mode = UFFDIO_WRITEPROTECT_MODE_WP; // UFFDIO_WRITEPROTECT_MODE_DONTWAKE;
-          //uffdio_writeprotect.mode = UFFDIO_WRITEPROTECT_MODE_DONTWAKE;
           SPDLOG_TRACE("virtual_memory_manager: msync() - block index - {}", (size_t) (block_address - (size_t) m_region_start_address) / m_block_size);
           SPDLOG_TRACE("virtual_memory_manager: msync() - m_block_size - {}", m_block_size);
           if (ioctl(m_uffd, UFFDIO_WRITEPROTECT, &uffdio_writeprotect) == -1){
-            spdlog::error("virtual_memory_manager: msync() - Error ioctl-UFFDIO_WRITEPROTECT - {}", strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: msync() - Error ioctl-UFFDIO_WRITEPROTECT - {}", strerror(errno));
             exit(-1);
           }
-          spdlog::info("virtual_memory_manager: msync() - ioctl-UFFDIO_WRITEPROTECT done");
+          SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: msync() - ioctl-UFFDIO_WRITEPROTECT done");
           //*/
           // std::cout << "done wp-ing block\n";
           int sub_region_index = ((uint64_t) block_address) % num_handling_threads;
@@ -506,7 +504,7 @@ class virtual_memory_manager {
       dirty_lru[sub_region_index].clear();
 
       // 2) Commit stashed blocks
-      spdlog::info("virtual_memory_manager: msync() - Msync Commit Stashed Blocks");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: msync() - Msync Commit Stashed Blocks");
       std::vector<uint64_t> stash_vector(stash_set[sub_region_index].begin(), stash_set[sub_region_index].end());
 #endif
 #pragma omp parallel for
@@ -518,7 +516,7 @@ class virtual_memory_manager {
         {
           std::string block_hash = /* block_storage_local.*/ m_block_storage->commit_stash_block(block_index);
           if (block_hash.empty()){
-            spdlog::error("virtual_memory_manager: Error committing stash block with address: {} - {}", (uint64_t) block_address, strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error committing stash block with address: {} - {}", (uint64_t) block_address, strerror(errno));
             exit(-1);
           }
           blocks_ids[block_index] = block_hash;
@@ -537,7 +535,6 @@ class virtual_memory_manager {
       if (fstat(0,&st_dev_null) != 0){
         int dev_null_fd = ::open("/dev/null",O_RDWR);
       }
-      spdlog::info("virtual_memory_manager: msync() - done");
 /*
       struct uffdio_writeprotect uffdio_writeprotect;
       uffdio_writeprotect.range.len = (uint64_t) m_block_size;
@@ -546,12 +543,13 @@ class virtual_memory_manager {
         void* block_address = (void*) *dirty_lru_iterator;
         uffdio_writeprotect.range.start = (uint64_t) block_address;
         if (ioctl(m_uffd, UFFDIO_WRITEPROTECT, &uffdio_writeprotect) == -1){
-          spdlog::error("virtual_memory_manager: msync() - Error ioctl-UFFDIO_WRITEPROTECT - {}", strerror(errno));
+          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: msync() - Error ioctl-UFFDIO_WRITEPROTECT - {}", strerror(errno));
           exit(-1);
         }
       }
 //*/
 #endif
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: msync() - done");
     }
 
 #ifdef SIGACTION
@@ -564,7 +562,7 @@ class virtual_memory_manager {
       uint64_t block_index = (fault_address - start_address) / m_block_size;
       uint64_t block_address = start_address + block_index * m_block_size;
       SPDLOG_TRACE("virtual_memory_manager: handler() - Faulted on block: {}", block_index);
-      //spdlog::info("virtual_memory_manager: handler() - Faulted on block address: {}", block_address - start_address);
+      //SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: handler() - Faulted on block address: {}", block_address - start_address);
       /*
       for(auto i : present_blocks) {
         std::cout << "indices: " << (i - start_address) / m_block_size << std::endl;
@@ -573,24 +571,26 @@ class virtual_memory_manager {
       // std::cout << "thread: " << omp_get_thread_num() << " Faulted on block: " << (block_index % num_locks) << std::endl;
       // const std::lock_guard<std::mutex> lock(blocks_locks[block_index]); // lock(blocks_locks[block_index % num_locks]);
       // std::cout << "thread: " << omp_get_thread_num() << " grabbed lock number: " << (block_index % num_locks) << std::endl;
-      /* if (fault_address < (uint64_t) start_address || fault_address >= (uint64_t) start_address + m_region_max_capacity){
-         spdlog::error("virtual_memory_manager: Faulting address out of range");
-         spdlog::error("Faulting address: {}", (uint64_t) fault_address);
-         spdlog::error("Start: {}", (uint64_t) start_address);
-         spdlog::error("End: {}", (uint64_t) start_address + m_region_max_capacity);
+      /*
+         if (fault_address < (uint64_t) start_address || fault_address >= (uint64_t) start_address + m_region_max_capacity){
+         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Faulting address out of range");
+         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Faulting address: {}", (uint64_t) fault_address);
+         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Start: {}", (uint64_t) start_address);
+         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "End: {}", (uint64_t) start_address + m_region_max_capacity);
          exit(-1);
-         } */
+         }
+        //*/
       // Handle block fault
       ucontext_t *ctx = (ucontext_t *) ctx_void_ptr;
       bool is_write_fault = ctx->uc_mcontext.gregs[REG_ERR] & 0x2;
 
       if (m_read_only && is_write_fault) {
-        spdlog::error("virtual_memory_manager: write fault on a read-only region");
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: write fault on a read-only region");
         exit(-1);
       }
 
       if (present_blocks.find((uint64_t) block_address) != present_blocks.end()){ // Block is present in-memory (just change prot and LRU if needed)
-        spdlog::info("virtual_memory_manager: handler() - Block present in memory");
+        SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: handler() - Block present in memory");
         if (is_write_fault){
           // Move from clean_lru to dirty_lru
           clean_lru.remove((uint64_t) block_address);
@@ -598,7 +598,7 @@ class virtual_memory_manager {
           if (stash_set.find(block_address) != stash_set.end()){
             // std::cout << "STASHED TO CLEAN TO DIRTY" << std::endl;
             if (!m_block_storage->unstash_block(block_index)){
-              spdlog::error("virtual_memory_manager: Error unstashing block with index = {}", block_index);
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error unstashing block with index = {}", block_index);
               exit(-1);
             }
             stash_set.erase(block_address);
@@ -606,12 +606,12 @@ class virtual_memory_manager {
         }
         int mprotect_stat = mprotect((void*) block_address, m_block_size, PROT_READ | PROT_WRITE);
         if (mprotect_stat == -1){
-          spdlog::error("virtual_memory_manager: mprotect error for block with address: {} {}", (uint64_t) block_address, strerror(errno));
+          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: mprotect error for block with address: {} {}", (uint64_t) block_address, strerror(errno));
           exit(-1);
         }
       }
       else{ // block is not present in-memory
-        spdlog::info("virtual_memory_manager: handler() - Block is not present in memory");
+        SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: handler() - Block is not present in memory");
         evict_if_needed();
 
         int prot = is_write_fault ? PROT_WRITE : PROT_READ;
@@ -639,15 +639,15 @@ class virtual_memory_manager {
           int shm_fd = shm_open(block_name.c_str(), O_CREAT | O_RDWR, S_IWUSR);
           // std::cout << "shm_fd: " << shm_fd << std::endl;
           if (shm_fd == -1){
-            spdlog::error("virtual_memory_manager: Error shm_open - {}", strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error shm_open - {}", strerror(errno));
           }
           int trunc_status = ftruncate(shm_fd, m_block_size);
           if (trunc_status == -1){
-            spdlog::error("virtual_memory_manager: Error ftruncate - {}", strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error ftruncate - {}", strerror(errno));
           }
           // shm_unlink
           if (shm_unlink(block_name.c_str()) == -1){
-            spdlog::error("virtual_memory_manager: Error shm_unlink - {}", strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error shm_unlink - {}", strerror(errno));
             exit(-1);
           }
           // mmap temporary location
@@ -657,14 +657,14 @@ class virtual_memory_manager {
           void* temp_buffer =  mmap(nullptr, m_block_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 #endif
           if (temp_buffer == MAP_FAILED){
-            spdlog::error("virtual_memory_manager: Error mmap temp - {}", strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error mmap temp - {}", strerror(errno));
             exit(-1);
           }
 
           // read block content into temporary buffer
           backing_block_fd = open(backing_block_path.c_str(), O_RDONLY);
           if (backing_block_fd == -1){
-            spdlog::error("virtual_memory_manager: Error opening backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error opening backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
             exit(-1);
           }
 #ifdef USE_COMPRESSION
@@ -672,7 +672,7 @@ class virtual_memory_manager {
           size_t compressed_block_size = utility::get_file_size(backing_block_path.c_str());
           void* const read_buffer = malloc(compressed_block_size);
           if (pread(backing_block_fd, read_buffer, compressed_block_size, 0) == -1){
-            spdlog::error("virtual_memory_manager: Error reading backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
             exit(-1);
           }
           size_t decompressed_size = utility::decompress(read_buffer, temp_buffer, compressed_block_size);
@@ -680,13 +680,13 @@ class virtual_memory_manager {
 #else
 
           if (pread(backing_block_fd, temp_buffer, m_block_size, 0) == -1){
-            spdlog::error("virtual_memory_manager: Error reading backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
             exit(-1);
           }
 #endif
 
           if (::close(backing_block_fd) == -1){
-            spdlog::error("virtual_memory_manager: Error closing backing block {} - {}", backing_block_path, strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error closing backing block {} - {}", backing_block_path, strerror(errno));
             exit(-1);
           }
 
@@ -695,13 +695,13 @@ class virtual_memory_manager {
           void *mmap_block_address = mmap((void*) block_address, m_block_size, prot, MAP_PRIVATE | MAP_FIXED, shm_fd,0);
 #else
           if (mprotect(temp_buffer, m_block_size, prot) != 0){
-            spdlog::error("virtual_memory_manager: Error updating permissions on temporary buffer for block {}", block_address);
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error updating permissions on temporary buffer for block {}", block_address);
             exit(-1);
           }
           void *mmap_block_address = mremap(temp_buffer, m_block_size, m_block_size, MREMAP_FIXED | MREMAP_MAYMOVE, block_address);
 #endif
           if (mmap_block_address == MAP_FAILED){
-            spdlog::error("virtual_memory_manager: Error remapping address {}", block_address);
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error remapping address {}", block_address);
             exit(-1);
           }
 
@@ -709,13 +709,13 @@ class virtual_memory_manager {
           // unmap temp buffer
           int munmap_status = munmap(temp_buffer, m_block_size);
           if (munmap_status == -1){
-            spdlog::error("virtual_memory_manager: Error unmapping temp buffer {} for faulting block address {}", (uint64_t) temp_buffer, block_address);
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error unmapping temp buffer {} for faulting block address {}", (uint64_t) temp_buffer, block_address);
             exit(-1);
           }
 
           // close shm_fd
           if (::close(shm_fd) == -1){
-            spdlog::error("virtual_memory_manager: Error closing shm_fd - {}", strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error closing shm_fd - {}", strerror(errno));
             exit(-1);
           }
 #endif
@@ -723,7 +723,7 @@ class virtual_memory_manager {
           if ((!stash_backing_block_path.empty()) && is_write_fault){
             // std::cout << "STASHED TO DIRTY: " << block_index << std::endl;
             if(!m_block_storage->unstash_block(block_index)){
-              spdlog::error("virtual_memory_manager: Error un-stashing block with index = {}", block_index);
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error un-stashing block with index = {}", block_index);
               exit(-1);
             }
             stash_set.erase(block_address);
@@ -731,7 +731,7 @@ class virtual_memory_manager {
         }
         else{ // No backing block yet, just change mprotect
           if (mprotect((void*) block_address, m_block_size, prot) == -1){
-            spdlog::error("virtual_memory_manager: Error changing PROT for block {} - {}", block_address, strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error changing PROT for block {} - {}", block_address, strerror(errno));
             exit(-1);
           }
         }
@@ -744,7 +744,7 @@ class virtual_memory_manager {
         }
         present_blocks.insert((uint64_t)block_address);
       }
-      spdlog::info("virtual_memory_manager: handler() - done");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: handler() - done");
     }
 #endif
 
@@ -783,11 +783,9 @@ class virtual_memory_manager {
         uint64_t start_address = (uint64_t) m_region_start_address;
         uint64_t block_index = (fault_address - start_address) / m_block_size;
         uint64_t block_address = start_address + block_index * m_block_size;
-      spdlog::info("virtual_memory_manager: handler() - Faulted on block: {}", block_index);
-      //spdlog::info("virtual_memory_manager: handler() - Faulted on block address: {}", block_address - start_address);
-      for(auto i : present_blocks[sub_region_index]) {
-        std::cout << "indices: " << (i - start_address) / m_block_size << std::endl;
-      }
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: handler() - Faulted on block: {}", block_index);
+      //SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: handler() - Faulted on block address: {}", block_address - start_address);
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: handler() - present_blocks indices: {}", present_blocks[sub_region_index].size());
 
         // Identify fault type
         bool is_wp_fault = fevent.is_wp_fault;
@@ -805,9 +803,9 @@ class virtual_memory_manager {
         // std::cout << "Identifier: " << this << std::endl;
         // printf("Starting address: %ld blocks_ids address: %ld Thread ID: %ld\n", (uint64_t) m_region_start_address, (uint64_t) &blocks_ids[0], (uint64_t) syscall(SYS_gettid));
         if (is_wp_fault){
-          spdlog::info("WP FAULT: Handling WP from thread {} for address {}", (uint64_t) syscall(SYS_gettid), fault_address);
+          SPDLOG_LOGGER_INFO(spdlog::default_logger(), "WP FAULT: Handling WP from thread {} for address {}", (uint64_t) syscall(SYS_gettid), fault_address);
           if (m_read_only){
-            spdlog::error("virtual_memory_manager: write fault on a read-only region");
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: write fault on a read-only region");
             exit(-1);
           }
           // std::cout << "WP Fault Being Handled\n";
@@ -817,7 +815,7 @@ class virtual_memory_manager {
           if (stash_set[sub_region_index].find(block_address) != stash_set[sub_region_index].end()){
             // std::cout << "STASHED TO CLEAN TO DIRTY" << std::endl;
             if (!m_block_storage->unstash_block(block_index)){
-              spdlog::error("virtual_memory_manager: Error unstashing block with index {}", block_index);
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error unstashing block with index {}", block_index);
               exit(-1);
             }
             stash_set[sub_region_index].erase(block_address);
@@ -830,17 +828,17 @@ class virtual_memory_manager {
           uffdio_writeprotect.range.len = m_block_size;
           uffdio_writeprotect.mode = 0; // UFFDIO_WRITEPROTECT_MODE_DONTWAKE;
           if (ioctl(m_uffd, UFFDIO_WRITEPROTECT, &uffdio_writeprotect) == -1){
-            spdlog::error("virtual_memory_manager: handler() - Error ioctl-UFFDIO_WRITEPROTECT - {}", strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: handler() - Error ioctl-UFFDIO_WRITEPROTECT - {}", strerror(errno));
             exit(-1);
           }
-          spdlog::info("virtual_memory_manager: handler() - ioctl-UFFDIO_WRITEPROTECT done");
+          SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: handler() - ioctl-UFFDIO_WRITEPROTECT done");
            // TODO: Single line below:
            // Possible fix for hanging? This should ensure queue is enqued correctly in the UFFD thread.
            // This is better for passing the Snapshot test cases, but there are still issues with page eviction.
           events_queues[sub_region_index].remove_processed(fevent);
         }
         else{ // std::cout << "BEFORO Handler 420" << std::endl;
-          spdlog::info("NOT WP FAULT");
+          SPDLOG_LOGGER_INFO(spdlog::default_logger(), "NOT WP FAULT");
           if (present_blocks[sub_region_index].find(block_address) == present_blocks[sub_region_index].end()){
             // std::cout << "Handler 420" << std::endl;
             evict_if_needed(sub_region_index);
@@ -868,14 +866,14 @@ class virtual_memory_manager {
               // std::cout << "block exists" << std::endl;
               /* void* temp_buffer =  mmap(nullptr, m_block_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
                  if (temp_buffer == MAP_FAILED){
-                 spdlog::error("virtual_memory_manager: Error mmap temp {}", strerror(errno));
+                 SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error mmap temp {}", strerror(errno));
                  exit(-1);
                  } */
 
               // read block content into temporary buffer
               backing_block_fd = open(backing_block_path.c_str(), O_RDONLY);
               if (backing_block_fd == -1){
-                spdlog::error("virtual_memory_manager: Error opening backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
+                SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error opening backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
                 exit(-1);
               }
 #ifdef USE_COMPRESSION
@@ -885,7 +883,7 @@ class virtual_memory_manager {
               size_t compressed_block_size = utility::get_file_size(backing_block_path.c_str());
               void* const read_buffer = malloc(compressed_block_size);
               if (pread(backing_block_fd, read_buffer, compressed_block_size, 0) == -1){
-                spdlog::error("virtual_memory_manager: Error reading backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
+                SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
                 exit(-1);
               }
               size_t decompressed_size = utility::decompress(read_buffer, (void*)(((uint64_t) temp_buffer) + (sub_region_index * m_block_size)), compressed_block_size);
@@ -893,7 +891,7 @@ class virtual_memory_manager {
 #else
               // std::cout << "NOT USING COMPRESSION" << std::endl;
               if (pread(backing_block_fd, (void*)( ((uint64_t)temp_buffer) + (sub_region_index * m_block_size)), m_block_size, 0) == -1){
-                spdlog::error("virtual_memory_manager: Error closing backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
+                SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error closing backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
                 exit(-1);
               }
 #endif
@@ -910,20 +908,20 @@ class virtual_memory_manager {
               uffdio_copy.mode = is_write_fault ? UFFDIO_COPY_MODE_DONTWAKE : (UFFDIO_COPY_MODE_WP | UFFDIO_COPY_MODE_DONTWAKE);
               uffdio_copy.copy = 0;
               if (ioctl(m_uffd, UFFDIO_COPY, &uffdio_copy) == -1){
-                spdlog::error("virtual_memory_manager: handler() - Error ioctl-UFFDIO_COPY - {}", strerror(errno));
+                SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: handler() - Error ioctl-UFFDIO_COPY - {}", strerror(errno));
                 exit(-1);
               }
-              spdlog::info("virtual_memory_manager: handler() - ioctl-UFFDIO_COPY done");
+              SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: handler() - ioctl-UFFDIO_COPY done");
             }
             else{
               /* char* tmp_buff;
                  if (posix_memalign((void**)&tmp_buff, m_block_size, m_block_size)) {
-                 spdlog::error("virtual_memory_manager: Error posix_memalign - {}", strerror(errno));
+                 SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error posix_memalign - {}", strerror(errno));
                  }
                  void *addr = mmap((void *) tmp_buff, m_block_size, PROT_READ | PROT_WRITE,
                  MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
                  if (addr == MAP_FAILED){
-                 spdlog::error("virtual_memory_manager: Error mmap zero page - {}", strerror(errno));
+                 SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error mmap zero page - {}", strerror(errno));
                  exit(-1);
                  } */
               // printf("TEMP ADDRESS %ld blocks_ids %ld m_block_size %ld from thread %ld\n", (uint64_t) addr, (uint64_t) &blocks_ids[0], m_block_size , (uint64_t) syscall(SYS_gettid));
@@ -935,10 +933,10 @@ class virtual_memory_manager {
                 uffdio_zeropage.range.len = m_block_size;
                 uffdio_zeropage.mode = UFFDIO_ZEROPAGE_MODE_DONTWAKE;
                 if (ioctl(m_uffd, UFFDIO_ZEROPAGE, &uffdio_zeropage) == -1){
-                  spdlog::error("virtual_memory_manager: Error ioctl-UFFDIO_ZEROPAGE for Zero-page write fault - {}", strerror(errno));
+                  SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error ioctl-UFFDIO_ZEROPAGE for Zero-page write fault - {}", strerror(errno));
                   exit(-1);
                 }
-                spdlog::info("virtual_memory_manager: handler() - ioctl-UFFDIO_ZEROPAGE done");
+                SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: handler() - ioctl-UFFDIO_ZEROPAGE done");
               }
               else{
                 is_valid_uffd(m_uffd);
@@ -948,16 +946,16 @@ class virtual_memory_manager {
                 uffdio_copy.mode = UFFDIO_COPY_MODE_WP | UFFDIO_COPY_MODE_DONTWAKE;;
                 uffdio_copy.copy = 0;
                 if (ioctl(m_uffd, UFFDIO_COPY, &uffdio_copy) == -1){
-                  spdlog::error("virtual_memory_manager: Error ioctl-UFFDIO_COPY for zero page - {}", strerror(errno));
+                  SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error ioctl-UFFDIO_COPY for zero page - {}", strerror(errno));
                   exit(-1);
                 }
-                spdlog::info("virtual_memory_manager: handler() - ioctl-UFFDIO_COPY done");
+                SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: handler() - ioctl-UFFDIO_COPY done");
               }
 
               // std::cout << "uffdio_copy.copy = " << uffdio_copy.copy << std::endl;
               is_zero_page = true;
               /* if (munmap(addr, m_block_size) == -1){
-                 spdlog::error("virtual_memory_manager: Error unmapping temporary buffer - {}", strerror(errno));
+                 SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error unmapping temporary buffer - {}", strerror(errno));
                  exit(-1);
                  } */
             }
@@ -974,10 +972,10 @@ class virtual_memory_manager {
             uffdio_range.start = block_address;
             uffdio_range.len = m_block_size;
             if (ioctl(m_uffd, UFFDIO_WAKE, &uffdio_range) == -1){
-              spdlog::error("virtual_memory_manager: Error ioctl-UFFDIO_WAKE - {}", strerror(errno));
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error ioctl-UFFDIO_WAKE - {}", strerror(errno));
               exit(-1);
             }
-            spdlog::info("virtual_memory_manager: handler() - ioctl-UFFDIO_WAKE done");
+            SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: handler() - ioctl-UFFDIO_WAKE done");
           }
         }
         /* std::chrono::time_point<std::chrono::system_clock> */ ts = std::chrono::system_clock::now();
@@ -1011,11 +1009,11 @@ class virtual_memory_manager {
       std::ifstream size_file;
       size_file.open(size_file_name);
       if (!size_file.is_open()){
-        spdlog::error("virtual_memory_manager: Error opening size file path at {}", size_file_name);
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error opening size file path at {}", size_file_name);
         return (size_t) -1;
       }
       if (!std::getline(size_file, size_string)){
-        spdlog::error("virtual_memory_manager: Error reading file");
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading file");
         return (size_t) -1;
       }
       size_file.close();
@@ -1024,7 +1022,7 @@ class virtual_memory_manager {
         return size;
       }
       catch (const std::invalid_argument& ia){
-        spdlog::error("virtual_memory_manager: Error parsing version size from file - {}", ia.what());
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error parsing version size from file - {}", ia.what());
         return (size_t) -1;
       }
     }
@@ -1036,11 +1034,11 @@ class virtual_memory_manager {
       
       blocks_path_file.open(blocks_path_file_name);
       if (!blocks_path_file.is_open()){
-        spdlog::error("virtual_memory_manager: Error opening blocks file path at {}", blocks_path_file_name);
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error opening blocks file path at {}", blocks_path_file_name);
         exit(-1);
       }
       if (!std::getline(blocks_path_file, blocks_dir_path)){
-        spdlog::error("virtual_memory_manager: Error reading blocks path file");
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading blocks path file");
         exit(-1);
       } 
       return block_storage::get_version_block_granularity(blocks_dir_path);
@@ -1051,12 +1049,12 @@ class virtual_memory_manager {
     }
 
     bool snapshot(const char* version_metadata_path){
-      //spdlog::info("virtual_memory_manager: snapshot() 1 - {}", ((size_t*) get_region_start_address())[0]);
+      //SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: snapshot() 1 - {}", ((size_t*) get_region_start_address())[0]);
       std::string snapshot_metadata_path = std::string(version_metadata_path) + "/_metadata";
       std::string m_temp_current_metadata_path = m_version_metadata_path;
 
 
-      spdlog::info("virtual_memory_manager: snapshot()");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: snapshot()");
       // Create new version metadata directory
       if(utility::directory_exists(version_metadata_path)){
         if (utility::file_exists(snapshot_metadata_path.c_str())){
@@ -1066,11 +1064,11 @@ class virtual_memory_manager {
       }
 
       else if (!utility::create_directory(version_metadata_path)){
-        spdlog::error("virtual_memory_manager: Failed to create version metadata directory at {} - {}", version_metadata_path, strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Failed to create version metadata directory at {} - {}", version_metadata_path, strerror(errno));
         return false;
       }
 
-      //spdlog::info("virtual_memory_manager: snapshot() 2 - {}", ((size_t*) get_region_start_address())[0]);
+      //SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: snapshot() 2 - {}", ((size_t*) get_region_start_address())[0]);
       // temporarily change metadata file descriptor
       // int temp_metada_fd = metadata_fd;
       m_version_metadata_path = std::string(version_metadata_path);
@@ -1078,12 +1076,12 @@ class virtual_memory_manager {
       int metadata_fd = ::open(snapshot_metadata_path.c_str(), O_RDWR | O_CREAT, (mode_t) 0666);
       int close_status = ::close(metadata_fd);
 
-      //spdlog::info("virtual_memory_manager: snapshot() 3 - {}", ((size_t*) get_region_start_address())[0]);
+      //SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: snapshot() 3 - {}", ((size_t*) get_region_start_address())[0]);
       msync();
       m_version_metadata_path = m_temp_current_metadata_path;
       // metadata_fd = temp_metada_fd;
 
-      //spdlog::info("virtual_memory_manager: snapshot() 4 - {}", ((size_t*) get_region_start_address())[0]);
+      //SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: snapshot() 4 - {}", ((size_t*) get_region_start_address())[0]);
       // Create file to save blocks path
       std::string blocks_path_file_name = std::string(version_metadata_path) + "/_blocks_path";
       std::ofstream blocks_path_file;
@@ -1122,7 +1120,7 @@ class virtual_memory_manager {
             void* address = (void*) *it;
             int status = munmap(address, m_block_size);
             if (status == -1){
-              spdlog::error("virtual_memory_manager: Error unmapping region with address {} - {}", *it, strerror(errno));
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error unmapping region with address {} - {}", *it, strerror(errno));
               return -1;
             }
           }
@@ -1192,7 +1190,7 @@ class virtual_memory_manager {
           pthread_t fault_handling_thread;
           int status = pthread_create(&fault_handling_thread, NULL, handler_helper, (void*) this);
           if (status != 0){
-            spdlog::error("virtual_memory_manager: pthread_create - {}", strerror(status));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: pthread_create - {}", strerror(status));
             exit(-1);
           }
           fault_handling_threads.push_back(fault_handling_thread);
@@ -1212,7 +1210,7 @@ class virtual_memory_manager {
           // printf("VMM: stop_handler_thread before pthread_join for thread %d\n", i);
           int status = pthread_join(fault_handling_threads[i],NULL);
           if (status != 0){
-            spdlog::error("virtual_memory_manager: Error pthread_join - ", strerror(status));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error pthread_join - ", strerror(status));
             exit(-1);
           }
           // printf("VMM: stop_handler_thread after pthread_join for thread %d\n", i);
@@ -1310,7 +1308,7 @@ class virtual_memory_manager {
         uffdio_api.features = 0;
         //if (!(fcntl(uffd, F_GETFD) != -1 || errno != EBADF)) {
         if (ioctl(uffd, UFFDIO_API, &uffdio_api) == -1) {
-          spdlog::error("Invalid userfaultfd: {}", strerror(errno));
+          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Invalid userfaultfd: {}", strerror(errno));
           return false;
         }
         */
@@ -1321,10 +1319,10 @@ class virtual_memory_manager {
       void evict_if_needed(){
         void* to_evict;
         if ((present_blocks.size()*m_block_size) >= m_max_mem_size){
-          spdlog::info("virtual_memory_manager: evict_if_needed() - Evicting");
+          SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: evict_if_needed() - Evicting");
           if (clean_lru.size() > 0){
             to_evict = (void*) clean_lru.back();
-            spdlog::info("virtual_memory_manager: evict_if_needed() - Evicting clean block: {}", ((uint64_t) to_evict - (uint64_t) m_region_start_address) / m_block_size);
+            SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: evict_if_needed() - Evicting clean block: {}", ((uint64_t) to_evict - (uint64_t) m_region_start_address) / m_block_size);
             clean_lru.pop_back();
           }
           else{
@@ -1333,16 +1331,16 @@ class virtual_memory_manager {
             dirty_lru.pop_back();
             // std::cout << "Hello from the other side" << std::endl;
             uint64_t block_index = ((uint64_t) to_evict - (uint64_t) m_region_start_address) / m_block_size;
-            spdlog::info("virtual_memory_manager: evict_if_needed() - Stashing block: {}", block_index);
+            SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: evict_if_needed() - Stashing block: {}", block_index);
             if (!m_block_storage->stash_block(to_evict, block_index)){
-              spdlog::error("virtual_memory_manager: Error stashing block with index {}", block_index);
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error stashing block with index {}", block_index);
               exit(-1);
             }
             stash_set.insert((uint64_t) to_evict);
           }
           int protect_status = mprotect(to_evict, m_block_size, PROT_NONE);
           if (protect_status == -1){
-            spdlog::error("virtual_memory_manager: Error evicting address {}", to_evict);
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error evicting address {}", to_evict);
             exit(-1);
           }
           present_blocks.erase((uint64_t) to_evict);
@@ -1354,31 +1352,31 @@ class virtual_memory_manager {
       void evict_if_needed(int sub_region_index){
         void* to_evict;
         if ((present_blocks[sub_region_index].size()*m_block_size) >= m_max_mem_size){
-          spdlog::info("virtual_memory_manager: evict_if_needed() - Evicting");
+          SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: evict_if_needed() - Evicting");
           if (clean_lru[sub_region_index].size() > 0){
             to_evict = (void*) clean_lru[sub_region_index].back();
-            spdlog::info("virtual_memory_manager: evict_if_needed() - Evicting clean block: {}", ((uint64_t) to_evict - (uint64_t) m_region_start_address) / m_block_size);
+            SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: evict_if_needed() - Evicting clean block: {}", ((uint64_t) to_evict - (uint64_t) m_region_start_address) / m_block_size);
             clean_lru[sub_region_index].pop_back();
           }
           else{
             to_evict = (void*) dirty_lru[sub_region_index].back();
             dirty_lru[sub_region_index].pop_back();
             uint64_t block_index = ((uint64_t) to_evict - (uint64_t) m_region_start_address) / m_block_size;
-            spdlog::info("virtual_memory_manager: evict_if_needed() - Stashing block: {}", block_index);
+            SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: evict_if_needed() - Stashing block: {}", block_index);
             if (!m_block_storage->stash_block(to_evict, block_index)){
-              spdlog::error("virtual_memory_manager: Error stashing block with index {}", block_index);
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error stashing block with index {}", block_index);
               exit(-1);
             }
             stash_set[sub_region_index].insert((uint64_t) to_evict);
           }
           /* int protect_status = mprotect(to_evict, m_block_size, PROT_NONE);
              if (protect_status == -1){
-             spdlog::error("virtual_memory_manager: Error evicting address {}", to_evict);
+             SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error evicting address {}", to_evict);
              exit(-1);
              } */
           void *evicted_addr = mmap(to_evict, m_block_size, prot, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
           if (evicted_addr == MAP_FAILED){
-            spdlog::error("virtual_memory_manager: Error evicting block with address - {}", strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error evicting block with address - {}", strerror(errno));
             exit(-1);
           }
           present_blocks[sub_region_index].erase((uint64_t) to_evict);
@@ -1406,7 +1404,7 @@ class virtual_memory_manager {
           size_t max_address = *present_blocks[sub_region_index].rbegin();
 #endif
 
-          spdlog::info("virtual_memory_manager: update_metadata()");
+          SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: update_metadata()");
 
           size_t current_size = max_address - (uint64_t) m_region_start_address + m_block_size;
           size_t num_blocks = current_size / m_block_size; // m_region_max_capacity / m_block_size;
@@ -1427,24 +1425,24 @@ class virtual_memory_manager {
           // std::cout << "update metadata to path: " << metadata_path << std::endl;
           int metadata_fd = open(metadata_path.c_str(), O_RDWR);
           if (metadata_fd == -1){
-            spdlog::error("virtual_memory_manager: Error opening metadata file - {}", strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error opening metadata file - {}", strerror(errno));
             exit(-1);
           }
           const auto written = ::pwrite(metadata_fd ,(void*) blocks_bytes, num_blocks*HASH_SIZE, 0);
           if (written == -1){
-            spdlog::error("virtual_memory_manager: Failed to update metadata and mappings - {}", strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Failed to update metadata and mappings - {}", strerror(errno));
             exit(-1);
           }
           if (::close(metadata_fd == -1)){
-            spdlog::error("virtual_memory_manager: Error closing metadata file after update - {}", strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error closing metadata file after update - {}", strerror(errno));
             exit(-1);
           }
           delete [] blocks_bytes;
-          spdlog::info("virtual_memory_manager: update_metadata() - done");
+          SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: update_metadata() - done");
         }
 
         void create_version_metadata(const char* version_metadata_dir_path, const char* block_storage_dir_path, size_t version_capacity, bool allow_overwrite){
-          spdlog::info("virtual_memory_manager: create_version_metadata()");
+          SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: create_version_metadata()");
           std::string metadata_file_name = std::string(version_metadata_dir_path) + "/_metadata";
           std::string blocks_path_file_name = std::string(version_metadata_dir_path) + "/_blocks_path";
           std::string capacity_file_name = std::string(version_metadata_dir_path) + "/_capacity";
@@ -1454,28 +1452,28 @@ class virtual_memory_manager {
             if (utility::file_exists(metadata_file_name.c_str()) || utility::file_exists(blocks_path_file_name.c_str()) || utility::file_exists(capacity_file_name.c_str())){
               if (allow_overwrite){
                 if (!std::filesystem::remove(std::filesystem::path(metadata_file_name)) || !std::filesystem::remove(std::filesystem::path(blocks_path_file_name)) || !std::filesystem::remove(std::filesystem::path(capacity_file_name))){
-                  spdlog::error("virtual_memory_manager: Error removing existing metadata files");
+                  SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error removing existing metadata files");
                   exit(-1);
                 }
                 if (!utility::create_directory(version_metadata_dir_path)){
-                  spdlog::error("virtual_memory_manager: Failed to create version metadata directory at {} - {}", version_metadata_dir_path, strerror(errno));
+                  SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Failed to create version metadata directory at {} - {}", version_metadata_dir_path, strerror(errno));
                   exit(-1);
                 }
               }
               else{
-                spdlog::error("Version metadata already exists");
+                SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Version metadata already exists");
                 exit(-1);
               }
             }
           }
           else if (!utility::create_directory(version_metadata_dir_path)){
-            spdlog::error("virtual_memory_manager: Failed to create version metadata directory at {} - {}", version_metadata_dir_path, strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Failed to create version metadata directory at {} - {}", version_metadata_dir_path, strerror(errno));
             exit(-1);
           }
           // Create blocks metadata file
           metadata_fd = ::open(metadata_file_name.c_str(), O_RDWR | O_CREAT | O_EXCL, (mode_t) 0666);
           if (metadata_fd == -1){
-            spdlog::error("virtual_memory_manager: Error opening metadata file {} - {}", metadata_file_name, strerror(errno));
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error opening metadata file {} - {}", metadata_file_name, strerror(errno));
             exit(-1);
           }
           // Create file to save blocks path

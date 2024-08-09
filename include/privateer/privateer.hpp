@@ -49,25 +49,25 @@ public:
   /**
    * @brief Construct a new Privateer object
    * 
-   * @param action 
+   * @param action
    * @param base_path 
    */
     Privateer(int action, const char* base_path){
 #ifdef SIGACTION
-      spdlog::info("Privateer: Constructor with SIGACTION");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Privateer: Constructor with SIGACTION");
 #endif
 
 #ifdef USERFAULTFD
-      spdlog::info("Privateer: Constructor with USERFAULTFD");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Privateer: Constructor with USERFAULTFD");
 #endif
 
     if (action != CREATE && action != OPEN){
-      spdlog::error("Privateer: Invalid action");
+      SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Invalid action");
       exit(-1);
     }
     if (action == CREATE){
       if (utility::directory_exists(base_path)){ // Do nothing, use existing
-        /* spdlog::error("Privateer: Error creating datastore - base directory already exists, action must be PRIVATEER::OPEN");
+        /* SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error creating datastore - base directory already exists, action must be PRIVATEER::OPEN");
         exit(-1); */
         spdlog::warn("Privateer: Using existing Privateer root dir at {}", base_path);
         base_dir_path = std::string(base_path);
@@ -76,14 +76,14 @@ public:
         // return; // TODO: uncommented in uffd variant?
       }
       else if (!utility::create_directory(base_path)){
-        spdlog::error("Privateer: Error creating base directory at {} - {}", base_path, strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error creating base directory at {} - {}", base_path, strerror(errno));
         exit(-1);
       }
       init_block_size();
     }
 
     if (action == OPEN && !utility::directory_exists(base_path)){
-      spdlog::error("Privateer: Error creating datastore - base directory does not exist, action must be PRIVATEER::CREATE");
+      SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error creating datastore - base directory does not exist, action must be PRIVATEER::CREATE");
       exit(-1);
     }
     base_dir_path = std::string(base_path);
@@ -100,42 +100,42 @@ public:
    */
   Privateer(int action, const char* base_path, const char* stash_base_path){
  #ifdef SIGACTION
-      spdlog::info("Privateer: Constructor (with stash path) with SIGACTION");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Privateer: Constructor (with stash path) with SIGACTION");
 #endif
 
 #ifdef USERFAULTFD
-      spdlog::info("Privateer: Constructor (with stash path) with USERFAULTFD");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Privateer: Constructor (with stash path) with USERFAULTFD");
 #endif
     if (action != CREATE && action != OPEN){
-      spdlog::error("Privateer: Invalid action");
+      SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Invalid action");
     exit(-1);
     }
     if (action == CREATE){
       if (utility::directory_exists(base_path)){
-        spdlog::error("Privateer: Error creating datastore - base directory already exists, action must be PRIVATEER::OPEN");
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error creating datastore - base directory already exists, action must be PRIVATEER::OPEN");
         exit(-1);
       }
 
       if (!utility::create_directory(base_path)){
-        spdlog::error("Privateer: Error creating base directory at {} - {}", base_path, strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error creating base directory at {} - {}", base_path, strerror(errno));
         exit(-1);
       }
       /* if (!utility::create_directory(stash_base_path)){
-        spdlog::error("Privateer: Error creating stash directory at {} - {}", stash_base_path, strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error creating stash directory at {} - {}", stash_base_path, strerror(errno));
         exit(-1);
       } */
     }
     if (!utility::directory_exists(stash_base_path)){
       if (!utility::create_directory(stash_base_path)){
-        spdlog::error("Privateer: Error creating stash directory at {} - {}", stash_base_path, strerror(errno));
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error creating stash directory at {} - {}", stash_base_path, strerror(errno));
         exit(-1);
       }
-      /* spdlog::error("Privateer: Error creating datastore - stash directory already exists, action must be PRIVATEER::OPEN");
+      /* SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error creating datastore - stash directory already exists, action must be PRIVATEER::OPEN");
       exit(-1); */
     }
 
     if (action == OPEN && !utility::directory_exists(base_path)){
-      spdlog::error("Privateer: Error opening datastore - base directory does not exist, action must be PRIVATEER::CREATE");
+      SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error opening datastore - base directory does not exist, action must be PRIVATEER::CREATE");
       exit(-1);
     }
     base_dir_path = std::string(base_path);
@@ -148,14 +148,14 @@ public:
    * 
    */
   ~Privateer(){
-    spdlog::info("Privateer: Destructor - starting");
+    SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Privateer: Destructor - starting");
     #ifdef SIGACTION
     struct sigaction sa;
     sa.sa_flags = SA_RESETHAND;
     sigemptyset(&sa.sa_mask);
     // sa.sa_sigaction = utility::sigsegv_handler_dispatcher::handler;
     if (sigaction(SIGSEGV, &sa, NULL) == -1){
-      spdlog::error("Privateer: Reset sigaction failed");
+      SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Reset sigaction failed");
       exit(-1);
     }
     utility::sigsegv_handler_dispatcher::remove_virtual_memory_manager((uint64_t) vmm->get_region_start_address());
@@ -163,12 +163,12 @@ public:
 
     #ifdef USERFAULTFD
     utility::UFFD::unregister_uffd_region((uint64_t)vmm->get_region_start_address(), vmm->current_region_capacity(), vmm);
-    // spdlog::info("Before deleting VMM");
+    // SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Before deleting VMM");
     utility::UFFD::stop_uffd();
     #endif
 
     delete vmm;
-      spdlog::info("Privateer: Destructor - done");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Privateer: Destructor - done");
   }
 
   /**
@@ -177,11 +177,11 @@ public:
    * @param addr 
    * @param version_metadata_path 
    * @param region_size 
-   * @param allow_overwrite 
-   * @return void* 
+   * @param allow_overwrite 1
+   * @return void* 1
    */
     void* create(void* addr, const char* version_metadata_path, size_t region_size, bool allow_overwrite){
-      spdlog::info("Privateer: create()");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Privateer: create()");
     std::string version_metadata_full_path = base_dir_path + "/" + version_metadata_path;
     vmm = new virtual_memory_manager(addr, region_size, m_block_size, version_metadata_full_path, blocks_dir_path, stash_dir_path, allow_overwrite);
 
@@ -192,7 +192,7 @@ public:
     sigemptyset(&sa.sa_mask);
     sa.sa_sigaction = utility::sigsegv_handler_dispatcher::handler;
     if (sigaction(SIGSEGV, &sa, NULL) == -1){
-      spdlog::error("Privateer: sigaction failed");
+      SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: sigaction failed");
       exit(-1);
     }
     #endif
@@ -212,7 +212,7 @@ public:
    * @return void* 
    */
   void* open(void* addr, const char* version_metadata_path){
-    spdlog::info("Privateer: open()");
+    SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Privateer: open()");
     return open(addr, version_metadata_path, false);
   }
 
@@ -224,7 +224,7 @@ public:
  * @return void* 
  */
   void* open_read_only(void* addr, const char* version_metadata_path){
-    spdlog::info("Privateer: open_read_only()");
+    SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Privateer: open_read_only()");
     return open(addr, version_metadata_path, true);
   }
 
@@ -238,24 +238,24 @@ public:
  * @return void* 
  */
   void* open_immutable(void* addr, const char* version_metadata_path,  const char* new_version_metadata_path){
-    spdlog::info("Privateer: open_immutable()");
+    SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Privateer: open_immutable()");
     std::string version_metadata_full_path = base_dir_path + "/" + std::string(version_metadata_path);
     std::string new_version_metadata_full_path = base_dir_path + "/" + std::string(new_version_metadata_path);
     // Check if datastore exist
     if(!utility::directory_exists(version_metadata_full_path.c_str())){
-      spdlog::error("Privateer: Directory {} does not exist", version_metadata_full_path);
+      SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Directory {} does not exist", version_metadata_full_path);
       throw "Directory Does Not Exists";
     }
 
     // Check if new directory exists
     if (utility::directory_exists(new_version_metadata_full_path.c_str())){
-      spdlog::error("Privateer: New version metadata directory already exists");
+      SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: New version metadata directory already exists");
       exit(-1);
     }
 
     // Create new directory
     if (!utility::create_directory(new_version_metadata_full_path.c_str())){
-      spdlog::error("Privateer: Error creating new version directory");
+      SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error creating new version directory");
     }
     // Copy all metadata files
     std::string metadata_file = std::string(version_metadata_full_path) + "/_metadata";
@@ -267,15 +267,15 @@ public:
     std::string new_blocks_path_file = std::string(new_version_metadata_full_path) + "/_blocks_path";
 
     if (!utility::copy_file(metadata_file.c_str(),new_metadata_file.c_str(), false)){
-      spdlog::error("Privateer: Error copying metadata file");
+      SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error copying metadata file");
       exit(-1);
     }
     if (!utility::copy_file(size_file.c_str(), new_size_file.c_str(), false)){
-      spdlog::error("Privateer: Error copying capacity file");
+      SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error copying capacity file");
       exit(-1);
     }
     if (!utility::copy_file(blocks_path_file.c_str(), new_blocks_path_file.c_str(), false)){
-      spdlog::error("Privateer: Error copying blocks path file");
+      SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error copying blocks path file");
       exit(-1);
     }
     // Open new copy
@@ -287,7 +287,7 @@ public:
    * 
    */
   void msync(){ // TODO: Inline?
-    spdlog::info("Privateer: msync()");
+    SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Privateer: msync()");
     vmm->msync();
   }
 
@@ -343,16 +343,16 @@ public:
 private:
   void* open(void* addr, const char *version_metadata_path, bool read_only){
 #ifdef SIGACTION
-      spdlog::info("Opening with SIGACTION");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Opening with SIGACTION");
 #endif
 
 #ifdef USERFAULTFD
-      spdlog::info("Opening with USERFAULTFD");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Opening with USERFAULTFD");
 #endif
 
     std::string version_metadata_full_path = base_dir_path + "/" + std::string(version_metadata_path);
     if(!utility::directory_exists(version_metadata_full_path.c_str())){
-      spdlog::error("Privateer: Directory {} does not exist", version_metadata_full_path);
+      SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Directory {} does not exist", version_metadata_full_path);
       exit(-1);
     }
     version_metadata_dir_path = version_metadata_full_path;
@@ -365,7 +365,7 @@ private:
     sigemptyset(&sa.sa_mask);
     sa.sa_sigaction = utility::sigsegv_handler_dispatcher::handler;
     if (sigaction(SIGSEGV, &sa, NULL) == -1){
-      spdlog::error("Privateer: sigaction failed");
+      SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: sigaction failed");
       exit(-1);
     }
     #endif
@@ -392,14 +392,14 @@ private:
             m_block_size = region_max_capacity / num_blocks;
           }
           else{
-          spdlog::error("Privateer: PRIVATEER_NUM_BLOCKS is set, but region capacity is not divisible by it");
+          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: PRIVATEER_NUM_BLOCKS is set, but region capacity is not divisible by it");
             exit(-1);
           }
         } */
       }
       // Verify multiple of system's page size
       /* if (m_block_size % pagesize != 0){
-         spdlog::error("Privateer: block_size must be multiple of system page size ({})", pagesize);
+         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: block_size must be multiple of system page size ({})", pagesize);
          exit(-1);
          } */
     }
@@ -416,14 +416,31 @@ private:
   virtual_memory_manager* vmm;
 };
 
+/**
+ * @brief Get region size
+ *
+ * @return region size
+ */
 inline size_t Privateer::region_size(){
   return vmm->current_region_capacity();
 }
 
+/**
+ * @brief Get version capacity
+ *
+ * @param version_path
+ * @return version capacity
+ */
 inline size_t Privateer::version_capacity(std::string version_path){
   return virtual_memory_manager::version_capacity(version_path);
 }
 
+/**
+ * @brief Get version block size
+ *
+ * @param version_path
+ * @return version block size
+ */
 inline size_t Privateer::version_block_size(std::string version_path){
   return virtual_memory_manager::version_block_size(version_path);
 }

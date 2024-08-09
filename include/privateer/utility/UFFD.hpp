@@ -1,6 +1,7 @@
 #pragma once 
 
 #include <inttypes.h>
+#include <spdlog/spdlog.h>
 #include <sys/types.h>
 #include <stdio.h>
 #include <linux/userfaultfd.h>
@@ -224,7 +225,6 @@ namespace utility{
 
     // START: Poll for page fault events
     while (true){
-      printf("POLLING FROM %ld\n", (uint64_t) syscall(SYS_gettid)); // std::cout << "POLLING!!!" << std::endl;
       SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Polling from handler(), {}", (uint64_t) syscall(SYS_gettid));
       nready = poll(&pollfd[0], 3, -1);
       if (nready == -1){
@@ -260,7 +260,7 @@ namespace utility{
       printf("CHECKING UFFD FROM %ld\n", (uint64_t) syscall(SYS_gettid)); // std::cout << "POLLING!!!" << std::endl;
       nread = read(m_uffd, &m_events[0], m_max_fault_events * sizeof(struct uffd_msg));
       if (nread == 0) {
-        spdlog::error("UFFD: EOF on userfaultfd");
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "UFFD: EOF on userfaultfd");
         exit(EXIT_FAILURE);
       }
 

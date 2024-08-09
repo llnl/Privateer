@@ -51,27 +51,3 @@ In addition to the standard CMake options, Metall have additional options as fol
     * Build using userfaultfd implementation
     * ON or OFF (default is OFF, using sigaction based implementation).
 
-## Using Privateer
-
-### Including Privateer
-
-```cpp
-#include<privateer.hpp>
-```
-
-### Creating and memory-mapping a new data store
-```cpp
-  Privateer privateer(Privateer::CREATE, "datastore");
-  void* data = (size_t*) privateer.create(nullptr, "v0", size_bytes, true);
-```
-
-### Opening and memory-mapping an existing data store
-```cpp
-  Privateer privateer(Privateer::OPEN, "datastore");
-  void* data = (size_t*) privateer.open(nullptr, "v0");
-```
-
-### Writeback
-```cpp
-  privateer.msync();
-```

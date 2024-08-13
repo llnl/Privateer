@@ -32,15 +32,20 @@ class my_formatter_flag : public spdlog::custom_flag_formatter {
 public:
     void format(const spdlog::details::log_msg &, const std::tm &, spdlog::memory_buf_t &dest) override
     {
-        std::string some_txt = "custom-flag";
-        dest.append(some_txt.data(), some_txt.data() + some_txt.size());
+      std::string some_txt = std::to_string(count);
+      count++;
+      dest.append(some_txt.data(), some_txt.data() + some_txt.size());
     }
 
     std::unique_ptr<custom_flag_formatter> clone() const override
     {
         return spdlog::details::make_unique<my_formatter_flag>();
     }
+
+    static size_t count;
 };
+
+size_t my_formatter_flag::count = 0;
 
 class PrivateerTest : public testing::TestWithParam<std::tuple<size_t, size_t, size_t, size_t, size_t, size_t, size_t>> {
   public:
@@ -52,11 +57,14 @@ class PrivateerTest : public testing::TestWithParam<std::tuple<size_t, size_t, s
 
     void SetUp() override {
       std::filesystem::remove_all(this->datastore);
-      //spdlog::set_level(spdlog::level::trace);
-      //*
+      spdlog::set_level(spdlog::level::trace);
+
+      auto formatter = std::make_unique<spdlog::pattern_formatter>();
+      formatter->add_flag<my_formatter_flag>('*').set_pattern("{\"id\":\"%*\",\"name\":\"%^%v%$\",\t\"cat\":\"CPP_APP\",\"pid\":\"%P\",\"tid\":\"%t\",\"ts\":\"%S%F\",\"dur\":\"%u\",\"ph\":\"X\",\"args\":{}}");
+
       // File sink with json pattern
       auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("logs/log.txt", true);
-      file_sink->set_pattern("{\"id\":\"\",\"name\":\"%^%v%$\",\t\"cat\":\"CPP_APP\",\"pid\":\"%P\",\"tid\":\"%t\",\"ts\":\"%S%F\",\"dur\":\"%u\",\"ph\":\"X\",\"args\":{}}");
+      file_sink->set_formatter(std::move(formatter));
 
       // Console sink with default pattern
       auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
@@ -67,13 +75,6 @@ class PrivateerTest : public testing::TestWithParam<std::tuple<size_t, size_t, s
 
       // Set the logger as the default logger
       spdlog::set_default_logger(logger);
-      //*/
-
-      /*
-      auto formatter = std::make_unique<spdlog::pattern_formatter>();
-      formatter->add_flag<my_formatter_flag>('*').set_pattern("[%n] [%*] [%^%l%$] %v");
-      spdlog::set_formatter(std::move(formatter));
-      //*/
 
       char env[] = "PRIVATEER_MAX_MEM_BLOCKS=";
       char block_num[10];

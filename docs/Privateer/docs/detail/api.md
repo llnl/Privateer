@@ -14,7 +14,8 @@ Privateer(int action, const char* base_path, const char* stash_base_path)
 ~Privateer()
 
 // Create a Privateer datastore, returns the start address of a datastore region.
-void* create(void* addr, const char* version_metadata_path, size_t region_size, bool allow_overwrite)
+void* create(void* addr, const char* version_metadata_path, 
+size_t region_size, bool allow_overwrite)
 
 // Opens an existing Privateer datastore, returns the start address of a datastore region.
 void* open(void* addr, const char* version_metadata_path)

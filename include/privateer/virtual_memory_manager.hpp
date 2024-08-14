@@ -51,7 +51,7 @@ class virtual_memory_manager {
   public:
     virtual_memory_manager(void* start_address, size_t region_max_capacity, size_t block_size,
                            std::string version_metadata_path, std::string blocks_path, std::string stash_path, bool allow_overwrite){
-      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager()");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager() - start");
 #ifdef USERFAULTFD
       // printf("Waiting on handler_mutex_global create Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
       const std::lock_guard<std::mutex> lock(handler_mutex_global);
@@ -127,7 +127,13 @@ class virtual_memory_manager {
       if ( std::isnan((double)max_mem_size_blocks) || max_mem_size_blocks == 0){
         max_mem_size_blocks = MAX_MEM_DEFAULT_BLOCKS;
       }
-      
+
+#ifndef ENABLE_PAGE_EVICTION
+      if (max_mem_size_blocks * m_block_size < m_region_max_capacity) {
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Page eviction not permitted");
+      }
+#endif
+
       create_version_metadata(version_metadata_path.c_str(), blocks_path.c_str(), region_max_capacity, allow_overwrite);
       
       // m_block_size = block_size;
@@ -227,7 +233,7 @@ class virtual_memory_manager {
     }
 
     virtual_memory_manager(void* addr, std::string version_metadata_path, std::string stash_path, bool read_only){
-      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager()");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager() - start");
 #ifdef USERFAULTFD
       const std::lock_guard<std::mutex> lock(handler_mutex_global);
       SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: Acquired virtual handler_mutex_global, open Thread ID: {}", (uint64_t) syscall(SYS_gettid));
@@ -340,6 +346,12 @@ class virtual_memory_manager {
       }
       m_max_mem_size = max_mem_size_blocks * m_block_size;
 
+#ifndef ENABLE_PAGE_EVICTION
+      if (max_mem_size_blocks * m_block_size < m_region_max_capacity) {
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Page eviction not permitted");
+      }
+#endif
+
       // std::cout << "Privateer Open 292" << std::endl;
       // In some cases /dev/null file descriptor was affected, temporary solution is check and re-open
       struct stat st_dev_null;
@@ -426,11 +438,12 @@ class virtual_memory_manager {
 
 #ifdef USERFAULTFD
       void msync(){
-        SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: msync()");
+        SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: msync() - start");
         for (int i = 0 ; i < num_handling_threads; i++){
           SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: msync({})", i);
           msync(i);
         }
+        SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: msync() - done");
       }
 
       void msync(int sub_region_index){
@@ -557,6 +570,7 @@ class virtual_memory_manager {
 
       //const std::lock_guard<std::mutex> lock(sig_handler_mutex);
       // Get and assert faulting address
+      SPDLOG_TRACE("virtual_memory_manager: handler() - start");
       uint64_t fault_address = (uint64_t) si->si_addr;
       uint64_t start_address = (uint64_t) m_region_start_address;
       uint64_t block_index = (fault_address - start_address) / m_block_size;
@@ -750,6 +764,7 @@ class virtual_memory_manager {
 
 #ifdef USERFAULTFD
     void* handler(uint64_t sub_region_index){
+      SPDLOG_TRACE("virtual_memory_manager: handler() - start");
       // std::cout << "Starting handler FUNC in VMM\n";
       // printf("uffd_active %d\n", uffd_active);
       // printf("Starting handler thread with ID %d sub_region_index %d\n", (uint64_t) syscall(SYS_gettid), sub_region_index);
@@ -766,7 +781,7 @@ class virtual_memory_manager {
         // printf("Aquired handler_mutex_global handler Thread ID: %ld\n", (uint64_t) syscall(SYS_gettid));
         // if (!fault_events_queue.empty()){
         // Get and assert faulting address
-        printf("Dequeing from thread %ld \n", (uint64_t) syscall(SYS_gettid));
+        SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Dequeing from thread {}", (uint64_t) syscall(SYS_gettid));
         utility::fault_event fevent = events_queues[sub_region_index].dequeue();
         if (fevent.address == 0){
           // std::cout << "Zero Address\n";
@@ -995,6 +1010,7 @@ class virtual_memory_manager {
       return NULL;
       // END: Poll for page fault events
       // -------------------------------
+      SPDLOG_TRACE("virtual_memory_manager: handler() - done");
     }
 #endif
 
@@ -1054,7 +1070,7 @@ class virtual_memory_manager {
       std::string m_temp_current_metadata_path = m_version_metadata_path;
 
 
-      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: snapshot()");
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: snapshot() - start");
       // Create new version metadata directory
       if(utility::directory_exists(version_metadata_path)){
         if (utility::file_exists(snapshot_metadata_path.c_str())){
@@ -1096,6 +1112,7 @@ class virtual_memory_manager {
       capacity_path_file << m_region_max_capacity;
       capacity_path_file.close();
 
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: snapshot() - done");
       return true;
     }
 

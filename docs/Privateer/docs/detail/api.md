@@ -77,3 +77,6 @@ static size_t version_block_size(std::string version_path)
 ```cpp
   privateer.msync();
 ```
+
+### Undefined behavior
+Accessing memory out of bounds of the region maintained by the Privateer datastore object will have undefined behavior, as it is managed by mmap() internally.

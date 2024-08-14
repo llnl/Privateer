@@ -38,3 +38,8 @@ if (ENABLE_UFFD)
 else()
   target_compile_definitions(PrivateerTest PRIVATE SIGACTION)
 endif()
+
+option(ENABLE_PAGE_EVICTION "Enable page eviction" OFF)
+if (ENABLE_UFFD)
+  target_compile_definitions(privateer-static PRIVATE ENABLE_PAGE_EVICTION)
+endif()

@@ -59,10 +59,9 @@ class PrivateerTest : public testing::TestWithParam<std::tuple<size_t, size_t, s
       std::filesystem::remove_all(this->datastore);
       spdlog::set_level(spdlog::level::trace);
 
+      // File sink with json pattern
       auto formatter = std::make_unique<spdlog::pattern_formatter>();
       formatter->add_flag<my_formatter_flag>('*').set_pattern("{\"id\":\"%*\",\"name\":\"%^%v%$\",\t\"cat\":\"CPP_APP\",\"pid\":\"%P\",\"tid\":\"%t\",\"ts\":\"%S%F\",\"dur\":\"%u\",\"ph\":\"X\",\"args\":{}}");
-
-      // File sink with json pattern
       auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("logs/log.txt", true);
       file_sink->set_formatter(std::move(formatter));
 
@@ -675,6 +674,7 @@ TEST(PrivateerTest_Concurrent, ConcurrentWrite) {
   std::filesystem::remove_all(datastore);
 }
 
+/* Out of range cases are undefined!
 // Death tests
 TEST_P(PrivateerTest, LowerBoundOutOfRange) {
   EXPECT_DEATH({
@@ -701,6 +701,7 @@ TEST_P(PrivateerTest, UpperBoundOutOfRangeAfterInitialFault) {
       this->data[this->num_ints] = 1;
     }, "Fault address out of range");
 }
+//*/
 
 TEST_P(PrivateerTest, ReadOnly) {
   this->data[0] = 7;
@@ -756,6 +757,7 @@ INSTANTIATE_TEST_SUITE_P(
       std::make_tuple(    8,               8 * 1024LLU,  5, 10, 6, 10, 10),
       std::make_tuple(   16,               8 * 1024LLU,  5, 10, 6, 10, 10),
       std::make_tuple(16384,               8 * 1024LLU,  5, 10, 6, 10, 10),
+#ifdef ENABLE_PAGE_EVICTION
       std::make_tuple(    1,        8 * 1024 * 1024LLU,  3, 10, 2, 10, 10), // page eviction occurs
       std::make_tuple(    2,        8 * 1024 * 1024LLU,  3, 10, 2, 10, 10), // page eviction occurs
       std::make_tuple(    1,        8 * 1024 * 1024LLU,  3, 10, 4, 10, 10), // page eviction occurs
@@ -766,6 +768,7 @@ INSTANTIATE_TEST_SUITE_P(
       std::make_tuple(    2,        8 * 1024 * 1024LLU,  3, 10, 8, 10, 10), // page eviction occurs
       std::make_tuple(    1,        8 * 1024 * 1024LLU,  5, 10, 6, 10, 10), // page eviction occurs
       std::make_tuple(    2,        8 * 1024 * 1024LLU,  5, 10, 6, 10, 10), // page eviction occurs
+#endif
       std::make_tuple(    4,        8 * 1024 * 1024LLU,  5, 10, 6, 10, 10),
       std::make_tuple(    8,        8 * 1024 * 1024LLU,  5, 10, 6, 10, 10),
       std::make_tuple(   16,        8 * 1024 * 1024LLU,  5, 10, 6, 10, 10),

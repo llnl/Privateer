@@ -156,6 +156,14 @@ else()
   message(STATUS "Configuring with SIGACTION")
 endif()
 
+option(ENABLE_PAGE_EVICTION "Enable page eviction" OFF)
+if (ENABLE_PAGE_EVICTION)
+  target_compile_definitions(privateer-static PRIVATE ENABLE_PAGE_EVICTION)
+  message(STATUS "Configuring with Page Eviction")
+else()
+  message(STATUS "Configuring without Page Eviction")
+endif()
+
 find_package(MPI)
 
 include(CTest)

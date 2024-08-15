@@ -727,7 +727,7 @@ TEST_P(PrivateerTest, SimpleCompressionTest) {
   }
   priv->msync();
   size_t size = 0;
-  for (const auto& entry : std::filesystem::recursive_directory_iterator(this->datastore + /blocks")) {
+  for (const auto& entry : std::filesystem::recursive_directory_iterator(std::string(this->datastore) + std::string("/blocks"))) {
     if (std::filesystem::is_regular_file(entry.path())) {
       size += std::filesystem::file_size(entry.path());
     }

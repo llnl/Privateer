@@ -57,6 +57,7 @@ else()
 endif()
 # --------------------------------------------------
 
+include(FetchContent)
 # ------------------ Boost -------------------------------------------------------------------------------
 set (Boost_NO_BOOST_CMAKE ON)
 
@@ -64,13 +65,22 @@ find_package(Boost) # COMPONENTS iostreams) # REQUIRED COMPONENTS system iostrea
 
 if (Boost_FOUND)
 
-    # Just a sanity check
-    if (NOT Boost_INCLUDE_DIRS)
-        message(FATAL_ERROR "Something is wrong: Boost_INCLUDE_DIRS is empty although Boost_FOUND is true.")
-    endif()
-    include_directories(${Boost_INCLUDE_DIRS})
+  # Just a sanity check
+  if (NOT Boost_INCLUDE_DIRS)
+    message(FATAL_ERROR "Something is wrong: Boost_INCLUDE_DIRS is empty although Boost_FOUND is true.")
+  endif()
+  include_directories(${Boost_INCLUDE_DIRS})
 else ()
-    message(FATAL_ERROR "Can not find Boost C++ Libraries")
+  message(STATUS "Download and setup Boost")
+  FetchContent_Declare(Boost
+    URL https://boostorg.jfrog.io/artifactory/main/release/1.82.0/source/boost_1_82_0.tar.bz2)
+  FetchContent_GetProperties(Boost)
+  if (NOT Boost_POPULATED)
+    FetchContent_Populate(Boost)
+  endif ()
+  set(BOOST_ROOT ${boost_SOURCE_DIR})
+  find_package(Boost 1.82)
+  include_directories(${Boost_INCLUDE_DIRS})
 endif ()
 
 # ---------------------------------------------------------------------------------------------------------- 
@@ -98,17 +108,28 @@ TARGET_LINK_LIBRARIES(privateer-static stdc++fs)
 
 # ZSTD
 # ------------------ZSTD----------------------------
-if (ZSTD_ROOT)
-  find_library(LIBZSTD NAMES zstd PATHS ${ZSTD_ROOT}/lib)
-  # target_include_directories(privateer PRIVATE ${ZSTD_ROOT}/lib)
-  # target_link_libraries(privateer ${LIBZSTD})
-  target_include_directories(privateer-static PRIVATE ${ZSTD_ROOT}/lib)
-  target_link_libraries(privateer-static ${LIBZSTD})
-  # target_compile_definitions(privateer PRIVATE USE_COMPRESSION)
+option(ENABLE_ZSTD "Enable compression" OFF)
+if (ENABLE_ZSTD)
+  message(STATUS "Configuring with zstd")
+  list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+  find_package(zstd REQUIRED)
+  target_include_directories(privateer-static PRIVATE ${ZSTD_INCLUDE_DIRS})
+  TARGET_LINK_LIBRARIES(privateer-static zstd::zstd)
   target_compile_definitions(privateer-static PRIVATE USE_COMPRESSION)
 endif()
 # --------------------------------------------------
 
+# SPDLOG
+# ------------------SPDLOG----------------------------
+#option(ENABLE_SPDLOG "Enable logging" OFF)
+#if (ENABLE_SPDLOG)
+message(STATUS "Configuring with spdlog")
+
+  find_package(spdlog CONFIG REQUIRED)
+  TARGET_LINK_LIBRARIES(privateer-static spdlog::spdlog)
+  add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
+#endif()
+# --------------------------------------------------
 
 # iostreams
 # TARGET_LINK_LIBRARIES(privateer boost_iostreams)
@@ -126,6 +147,26 @@ install(TARGETS  privateer-static # Removed "privateer" from here
 
 install(DIRECTORY include/privateer DESTINATION include)
 
-# find_package(MPI)
+option(ENABLE_UFFD "Enable userfaultfd" OFF)
+if (ENABLE_UFFD)
+  target_compile_definitions(privateer-static PRIVATE USERFAULTFD)
+  message(STATUS "Configuring with UFFD")
+else()
+  target_compile_definitions(privateer-static PRIVATE SIGACTION)
+  message(STATUS "Configuring with SIGACTION")
+endif()
 
-# add_subdirectory(test_apps)
+option(ENABLE_PAGE_EVICTION "Enable page eviction" OFF)
+if (ENABLE_PAGE_EVICTION)
+  target_compile_definitions(privateer-static PRIVATE ENABLE_PAGE_EVICTION)
+  message(STATUS "Configuring with Page Eviction")
+else()
+  message(STATUS "Configuring without Page Eviction")
+endif()
+
+find_package(MPI)
+
+include(CTest)
+enable_testing()
+#add_subdirectory(test_apps)
+add_subdirectory(test)

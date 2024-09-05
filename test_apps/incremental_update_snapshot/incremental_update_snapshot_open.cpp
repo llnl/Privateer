@@ -56,7 +56,7 @@ int main(int argc, char **argv){
     }
   }
 
-  Privateer priv(version_path, false);
+  Privateer priv(Privateer::CREATE, blocks_path);
 
   size_t* data = (size_t*)priv.data();
   size_t num_ints = priv.current_size() / sizeof(size_t);

@@ -1,0 +1,58 @@
+\hypertarget{classblock__storage}{}\doxysection{block\+\_\+storage Class Reference}
+\label{classblock__storage}\index{block\_storage@{block\_storage}}
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classblock__storage_a445ff7708a059928e3775c4d461c1488}\label{classblock__storage_a445ff7708a059928e3775c4d461c1488}} 
+{\bfseries block\+\_\+storage} (std\+::string base\+\_\+directory)
+\item 
+\mbox{\Hypertarget{classblock__storage_a040418be782f22d1cb1cdf939c024594}\label{classblock__storage_a040418be782f22d1cb1cdf939c024594}} 
+{\bfseries block\+\_\+storage} (std\+::string base\+\_\+directory, std\+::string stash\+\_\+directory)
+\item 
+\mbox{\Hypertarget{classblock__storage_a1ab6a1ef6fb10e6321072fd8286db3de}\label{classblock__storage_a1ab6a1ef6fb10e6321072fd8286db3de}} 
+{\bfseries block\+\_\+storage} (std\+::string base\+\_\+directory, size\+\_\+t block\+\_\+granularity)
+\item 
+\mbox{\Hypertarget{classblock__storage_a6df28679e1c3cf0b30a635be1c8e3775}\label{classblock__storage_a6df28679e1c3cf0b30a635be1c8e3775}} 
+{\bfseries block\+\_\+storage} (std\+::string base\+\_\+directory, std\+::string stash\+\_\+directory, size\+\_\+t block\+\_\+granularity\+\_\+arg)
+\item 
+\mbox{\Hypertarget{classblock__storage_a7a5b32598d980fe65471c2c456efe21b}\label{classblock__storage_a7a5b32598d980fe65471c2c456efe21b}} 
+{\bfseries block\+\_\+storage} (const \mbox{\hyperlink{classblock__storage}{block\+\_\+storage}} \&\mbox{\hyperlink{classblock__storage}{block\+\_\+storage}})
+\item 
+\mbox{\Hypertarget{classblock__storage_a40af3eae6b6a6f9eab544983ded75b07}\label{classblock__storage_a40af3eae6b6a6f9eab544983ded75b07}} 
+std\+::string {\bfseries store\+\_\+block} (void $\ast$buffer, bool write\+\_\+to\+\_\+file, uint64\+\_\+t block\+\_\+index)
+\item 
+\mbox{\Hypertarget{classblock__storage_a138a1adb0ecd9c2e369fffad4d6eff80}\label{classblock__storage_a138a1adb0ecd9c2e369fffad4d6eff80}} 
+bool {\bfseries stash\+\_\+block} (void $\ast$block\+\_\+start, uint64\+\_\+t block\+\_\+index)
+\item 
+\mbox{\Hypertarget{classblock__storage_a58bd7a66c3bc93711a21491b5c48799c}\label{classblock__storage_a58bd7a66c3bc93711a21491b5c48799c}} 
+bool {\bfseries unstash\+\_\+block} (uint64\+\_\+t block\+\_\+index)
+\item 
+\mbox{\Hypertarget{classblock__storage_aacd86e2c218ec41a13b7dabf3a669e65}\label{classblock__storage_aacd86e2c218ec41a13b7dabf3a669e65}} 
+std\+::string {\bfseries commit\+\_\+stash\+\_\+block} (uint64\+\_\+t block\+\_\+index)
+\item 
+\mbox{\Hypertarget{classblock__storage_a9a8014de7d1d097be17fba524f23a316}\label{classblock__storage_a9a8014de7d1d097be17fba524f23a316}} 
+std\+::string {\bfseries get\+\_\+block\+\_\+full\+\_\+path} (uint64\+\_\+t block\+\_\+index, std\+::string block\+\_\+hash)
+\item 
+\mbox{\Hypertarget{classblock__storage_a8aa7fd6d773dc9e72dbad9bb4e8f37d9}\label{classblock__storage_a8aa7fd6d773dc9e72dbad9bb4e8f37d9}} 
+size\+\_\+t {\bfseries get\+\_\+block\+\_\+granularity} ()
+\item 
+\mbox{\Hypertarget{classblock__storage_a944f3b64d2612e0eeab92b4abab709e3}\label{classblock__storage_a944f3b64d2612e0eeab92b4abab709e3}} 
+std\+::string {\bfseries get\+\_\+block\+\_\+stash\+\_\+path} (size\+\_\+t block\+\_\+index)
+\item 
+\mbox{\Hypertarget{classblock__storage_a483bd43aa9ada2eb80d62c3540d7e48d}\label{classblock__storage_a483bd43aa9ada2eb80d62c3540d7e48d}} 
+std\+::string {\bfseries get\+\_\+blocks\+\_\+path} ()
+\item 
+\mbox{\Hypertarget{classblock__storage_abf9e8d96798b4e70870c0072a07e681d}\label{classblock__storage_abf9e8d96798b4e70870c0072a07e681d}} 
+bool {\bfseries copy\+\_\+to\+\_\+stash} (std\+::string base\+\_\+block, std\+::string stash\+\_\+block)
+\end{DoxyCompactItemize}
+\doxysubsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classblock__storage_ac71a8c94d106d79a7b35ba2f79b82436}\label{classblock__storage_ac71a8c94d106d79a7b35ba2f79b82436}} 
+static size\+\_\+t {\bfseries get\+\_\+version\+\_\+block\+\_\+granularity} (std\+::string blocks\+\_\+path)
+\end{DoxyCompactItemize}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+/home/caleb/\+Documents/2024\+Summer/\+Privateer/include/privateer/block\+\_\+storage.\+hpp\end{DoxyCompactItemize}

@@ -62,7 +62,7 @@ int main(int argc, char **argv){
   }
 
   std::string version_0_path = std::string(versions_base_path) + "/version_0";
-  Privateer priv(blocks_path, version_0_path.c_str(), size_bytes);
+  Privateer priv(Privateer::CREATE, blocks_path);
 
   size_t* data = (size_t*)priv.data();
   size_t num_ints = size_bytes / sizeof(size_t);

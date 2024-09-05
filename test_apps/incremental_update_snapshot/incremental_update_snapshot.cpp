@@ -35,6 +35,8 @@ int main(int argc, char **argv){
     return -1;
   }
 
+  putenv("PRIVATEER_MAX_MEM_BLOCKS=1");
+
   char* blocks_path = argv[1];
   char* versions_base_path = argv[2];
   size_t size_bytes = size_t(atol(argv[3]));
@@ -57,9 +59,9 @@ int main(int argc, char **argv){
   }
 
   std::string version_0_path = std::string(versions_base_path) + "/version_init";
-  Privateer priv(blocks_path, version_0_path.c_str(), size_bytes);
+  Privateer priv(Privateer::CREATE, blocks_path);
 
-  size_t* data = (size_t*)priv.data();
+  size_t* data = (size_t*) priv.create(nullptr, "v0", size_bytes);
   size_t num_ints = size_bytes / sizeof(size_t);
 
 
@@ -113,7 +115,7 @@ int main(int argc, char **argv){
     std::cout << "Iteration: " << i << " update time: " << iteration_update_time << " (s)" <<std::endl;
 
     double snapshot_start_time = omp_get_wtime();
-    std::string snapshot_path = std::string(versions_base_path) + "/version_" + std::to_string(i+1);
+    std::string snapshot_path = "v" + std::to_string(i+1);
     if (!priv.snapshot(snapshot_path.c_str())){
       std::cerr << "Error: Snapshot failed for version: " + std::to_string(i+1);
       exit(-1);

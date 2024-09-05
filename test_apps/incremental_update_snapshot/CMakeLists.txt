@@ -13,7 +13,7 @@ if(OPENMP_FOUND)
   set(CMAKE_EXE_LINKER_FLAGS
     "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
   add_executable(incremental_update_snapshot incremental_update_snapshot.cpp)
-  add_executable(incremental_update_snapshot_open incremental_update_snapshot_open.cpp)
+  #add_executable(incremental_update_snapshot_open incremental_update_snapshot_open.cpp)
   add_executable(incremental_update_snapshot_skewed incremental_update_snapshot_skewed.cpp)
 else()
   message("Skipping incremental_update_snapshot, OpenMP required")

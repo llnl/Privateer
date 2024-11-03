@@ -18,7 +18,8 @@
 #include <string>
 #include <vector>
 
-#include "../../include/privateer/privateer.hpp"
+#include <privateer/privateer.hpp>
+
 #include "../utility/random.hpp"
 
 std::vector<size_t> get_random_offsets(size_t region_start, size_t region_end, size_t num_updates){
@@ -29,39 +30,28 @@ std::vector<size_t> get_random_offsets(size_t region_start, size_t region_end, s
 
 int main(int argc, char **argv){
 
-  if (argc != 7) {
+  if (argc != 6) {
     std::cerr << "Usage: " << argv[0]
-              << " <blocks_path> <versions_base_path> <size in bytes (int)> <update ratio (1 to 100)> <num_iterations> <num_threads>" << std::endl;
+              << " <privateer_base_dir> <size in bytes (int)> <update ratio (1 to 100)> <num_iterations> <num_threads>" << std::endl;
     return -1;
   }
 
   putenv("PRIVATEER_MAX_MEM_BLOCKS=1");
 
-  char* blocks_path = argv[1];
-  char* versions_base_path = argv[2];
-  size_t size_bytes = size_t(atol(argv[3]));
-  int update_ratio = atoi(argv[4]);
+  char* privateer_base_dir = argv[1];
+  size_t size_bytes = size_t(atol(argv[2]));
+  int update_ratio = atoi(argv[3]);
   if (update_ratio < 1 || update_ratio > 100){
     std::cerr << "Error: update ratio must be between 1 and 100" << std::endl;
   }
-  int num_iterations = atoi(argv[5]);
-  int num_threads = atoi(argv[6]);
+  int num_iterations = atoi(argv[4]);
+  int num_threads = atoi(argv[5]);
 
   omp_set_num_threads(num_threads);
 
-  // Create versions base path
-  std::error_code ec;
-  if(!fs::create_directory(versions_base_path)){
-    if(ec){
-      std::cerr << "Error creating directory - " << strerror(errno) << std::endl;
-      exit(-1);
-    }
-  }
+  Privateer priv(Privateer::CREATE, privateer_base_dir);
 
-  std::string version_0_path = std::string(versions_base_path) + "/version_init";
-  Privateer priv(Privateer::CREATE, blocks_path);
-
-  size_t* data = (size_t*) priv.create(nullptr, "v0", size_bytes);
+  size_t* data = (size_t*) priv.create(nullptr, "v0", size_bytes, false);
   size_t num_ints = size_bytes / sizeof(size_t);
 
 

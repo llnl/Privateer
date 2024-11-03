@@ -6,6 +6,8 @@
 cmake_minimum_required (VERSION 3.5.1)
 project( Privateer LANGUAGES CXX C )
 
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+
 # create config file
 include(CMakePackageConfigHelpers)
 configure_package_config_file(
@@ -27,21 +29,14 @@ if ( EXISTS "${CMAKE_SOURCE_DIR}/.git" )
 endif()
 
 
-FIND_PACKAGE(OpenSSL)
-
-# option(USE_PAGEMAP_MSYNC ON)
-
-# if (USE_PAGEMAP_MSYNC)
-#  add_definitions(-DUSE_PAGEMAP)
-# endif()
 
 
 # OpenSSL
-link_libraries(OpenSSL::SSL)
-link_libraries(OpenSSL::Crypto)
+# link_libraries(OpenSSL::SSL)
+# link_libraries(OpenSSL::Crypto)
 
 # File System
-link_libraries(stdc++fs)
+# link_libraries(stdc++fs)
 
 
 # ------------------OpenMP--------------------------
@@ -95,16 +90,17 @@ set(privateer_src src/privateer_c.cpp ${privateer_headers})
 # add_library(privateer SHARED ${privateer_src} )
 add_library(privateer-static STATIC ${privateer_src} )
 
+find_package(OpenSSL REQUIRED)
 # TARGET_LINK_LIBRARIES(privateer rt)
-TARGET_LINK_LIBRARIES(privateer-static rt)
+target_link_libraries(privateer-static PUBLIC rt)
 # TARGET_LINK_LIBRARIES(privateer OpenSSL::SSL)
-TARGET_LINK_LIBRARIES(privateer-static OpenSSL::SSL)
+target_link_libraries(privateer-static PUBLIC OpenSSL::SSL)
 # TARGET_LINK_LIBRARIES(privateer OpenSSL::Crypto)
-TARGET_LINK_LIBRARIES(privateer-static OpenSSL::Crypto)
+target_link_libraries(privateer-static PUBLIC OpenSSL::Crypto)
 
 # File System
 # TARGET_LINK_LIBRARIES(privateer stdc++fs)
-TARGET_LINK_LIBRARIES(privateer-static stdc++fs)
+target_link_libraries(privateer-static PUBLIC stdc++fs)
 
 # ZSTD
 # ------------------ZSTD----------------------------
@@ -113,9 +109,9 @@ if (ENABLE_ZSTD)
   message(STATUS "Configuring with zstd")
   list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
   find_package(zstd REQUIRED)
-  target_include_directories(privateer-static PRIVATE ${ZSTD_INCLUDE_DIRS})
-  TARGET_LINK_LIBRARIES(privateer-static zstd::zstd)
-  target_compile_definitions(privateer-static PRIVATE USE_COMPRESSION)
+  target_include_directories(privateer-static PUBLIC ${ZSTD_INCLUDE_DIRS})
+  target_link_libraries(privateer-static PUBLIC zstd::zstd)
+  target_compile_definitions(privateer-static PUBLIC USE_COMPRESSION)
 endif()
 # --------------------------------------------------
 
@@ -124,10 +120,12 @@ endif()
 #option(ENABLE_SPDLOG "Enable logging" OFF)
 #if (ENABLE_SPDLOG)
 message(STATUS "Configuring with spdlog")
-
-  find_package(spdlog CONFIG REQUIRED)
-  TARGET_LINK_LIBRARIES(privateer-static spdlog::spdlog)
-  add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
+FetchContent_Declare(spdlog
+  URL https://github.com/gabime/spdlog/archive/refs/tags/v1.14.1.tar.gz)
+FetchContent_MakeAvailable(spdlog)
+include_directories(${spdlog_INCLUDE_DIRS})
+target_link_libraries(privateer-static PUBLIC spdlog::spdlog)
+add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
 #endif()
 # --------------------------------------------------
 
@@ -149,16 +147,16 @@ install(DIRECTORY include/privateer DESTINATION include)
 
 option(ENABLE_UFFD "Enable userfaultfd" OFF)
 if (ENABLE_UFFD)
-  target_compile_definitions(privateer-static PRIVATE USERFAULTFD)
+  target_compile_definitions(privateer-static PUBLIC USERFAULTFD)
   message(STATUS "Configuring with UFFD")
 else()
-  target_compile_definitions(privateer-static PRIVATE SIGACTION)
+  target_compile_definitions(privateer-static PUBLIC SIGACTION)
   message(STATUS "Configuring with SIGACTION")
 endif()
 
 option(ENABLE_PAGE_EVICTION "Enable page eviction" OFF)
 if (ENABLE_PAGE_EVICTION)
-  target_compile_definitions(privateer-static PRIVATE ENABLE_PAGE_EVICTION)
+  target_compile_definitions(privateer-static PUBLIC ENABLE_PAGE_EVICTION)
   message(STATUS "Configuring with Page Eviction")
 else()
   message(STATUS "Configuring without Page Eviction")
@@ -168,5 +166,5 @@ find_package(MPI)
 
 include(CTest)
 enable_testing()
-#add_subdirectory(test_apps)
+add_subdirectory(test_apps)
 add_subdirectory(test)

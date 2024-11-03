@@ -14,32 +14,17 @@ include(GoogleTest)
 function(add_gtest_executable test_name test_file)
     add_executable(${test_name} ${test_file})
     target_link_libraries(${test_name} PRIVATE GTest::gtest GTest::gtest_main)
+    add_dependencies(${test_name} privateer-static)
+    target_link_libraries(${test_name} PUBLIC privateer-static)
     gtest_discover_tests(${test_name})
 endfunction()
 
 add_gtest_executable(PrivateerTest PrivateerTest.cpp)
+
+
+
 if (MPI_CXX_FOUND)
-  target_link_libraries(PrivateerTest PUBLIC MPI::MPI_CXX)
+  target_link_libraries(PrivateerTest PRIVATE MPI::MPI_CXX)
 else()
   message(STATUS "Will skip the MPI tests")
-endif()
-
-if (ENABLE_ZSTD)
-  target_link_libraries(PrivateerTest PUBLIC zstd::zstd)
-  target_compile_definitions(PrivateerTest PRIVATE USE_COMPRESSION)
-endif()
-
-#if (ENABLE_SPDLOG)
-  target_link_libraries(PrivateerTest PUBLIC spdlog::spdlog)
-#endif()
-
-if (ENABLE_UFFD)
-  target_compile_definitions(PrivateerTest PRIVATE USERFAULTFD)
-else()
-  target_compile_definitions(PrivateerTest PRIVATE SIGACTION)
-endif()
-
-option(ENABLE_PAGE_EVICTION "Enable page eviction" OFF)
-if (ENABLE_UFFD)
-  target_compile_definitions(privateer-static PRIVATE ENABLE_PAGE_EVICTION)
 endif()

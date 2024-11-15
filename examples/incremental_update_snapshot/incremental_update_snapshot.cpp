@@ -36,8 +36,6 @@ int main(int argc, char **argv){
     return -1;
   }
 
-  putenv("PRIVATEER_MAX_MEM_BLOCKS=1");
-
   char* privateer_base_dir = argv[1];
   size_t size_bytes = size_t(atol(argv[2]));
   int update_ratio = atoi(argv[3]);

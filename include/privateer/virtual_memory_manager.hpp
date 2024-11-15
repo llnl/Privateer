@@ -1288,8 +1288,8 @@ class virtual_memory_manager {
       std::vector<long> handled_ts;
       // temd end
 
-      const size_t FILE_GRANULARITY_DEFAULT_BYTES = 134217728; // 128 MBs
-      const size_t MAX_MEM_DEFAULT_BLOCKS = 65536;
+      const size_t FILE_GRANULARITY_DEFAULT_BYTES = 2097152; // 2 MBs
+      const size_t MAX_MEM_DEFAULT_BLOCKS = 16384;
       const int NUM_HANDLING_THREADS_DEFAULT = 1;
       const int NUM_MSYNC_THREADS_DEFAULT = 1;
 

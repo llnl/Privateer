@@ -125,7 +125,7 @@ FetchContent_Declare(spdlog
 FetchContent_MakeAvailable(spdlog)
 include_directories(${spdlog_INCLUDE_DIRS})
 target_link_libraries(privateer-static PUBLIC spdlog::spdlog)
-add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
+add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_ERROR)
 #endif()
 # --------------------------------------------------
 
@@ -166,5 +166,5 @@ find_package(MPI)
 
 include(CTest)
 enable_testing()
-add_subdirectory(test_apps)
+add_subdirectory(examples)
 add_subdirectory(test)

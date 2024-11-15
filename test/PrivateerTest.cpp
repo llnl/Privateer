@@ -14,7 +14,7 @@
 #include "spdlog/pattern_formatter.h"
 
 #include "../include/privateer/privateer.hpp"
-#include "../test_apps/utility/random.hpp"
+#include "../examples/utility/random.hpp"
 
 std::vector<size_t> get_random_offsets(size_t region_length, size_t num_updates){
   std::vector<size_t> random_values;

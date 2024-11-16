@@ -20,7 +20,7 @@ jobs:
       - name: Build
         run: |
           mkdir build && cd build
-          cmake -DCMAKE_INSTALL_PREFIX=. ..
+          cmake -DCMAKE_INSTALL_PREFIX=. -DCMAKE_BUILD_TYPE=Debug ..
           make install -j8
           ctest --output-on-failure
   build_zstd:
@@ -42,7 +42,7 @@ jobs:
       - name: Build
         run: |
           mkdir build && cd build
-          cmake -DENABLE_ZSTD=ON -DCMAKE_INSTALL_PREFIX=. ..
+          cmake -DENABLE_ZSTD=ON -DCMAKE_INSTALL_PREFIX=. -DCMAKE_BUILD_TYPE=Debug ..
           make install -j8
           ctest --output-on-failure
   build_uffd:
@@ -62,7 +62,7 @@ jobs:
       - name: Build
         run: |
           mkdir build && cd build
-          cmake -DENABLE_UFFD=ON -DCMAKE_INSTALL_PREFIX=. ..
+          cmake -DENABLE_UFFD=ON -DCMAKE_INSTALL_PREFIX=. -DCMAKE_BUILD_TYPE=Debug ..
           make install -j8
           ctest --output-on-failure
   build_uffd_zstd:
@@ -84,6 +84,6 @@ jobs:
       - name: Build
         run: |
           mkdir build && cd build
-          cmake -DENABLE_UFFD=ON -DENABLE_ZSTD=ON -DCMAKE_INSTALL_PREFIX=. ..
+          cmake -DENABLE_UFFD=ON -DENABLE_ZSTD=ON -DCMAKE_INSTALL_PREFIX=. -DCMAKE_BUILD_TYPE=Debug ..
           make install -j8
           ctest --output-on-failure

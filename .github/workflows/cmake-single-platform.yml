@@ -22,7 +22,7 @@ jobs:
           mkdir build && cd build
           cmake -DCMAKE_INSTALL_PREFIX=. ..
           make install -j8
-          make test
+          make test --output-on-failure
   build_zstd:
     runs-on: ubuntu-latest
     steps:
@@ -44,7 +44,7 @@ jobs:
           mkdir build && cd build
           cmake -DENABLE_ZSTD=ON -DCMAKE_INSTALL_PREFIX=. ..
           make install -j8
-          make test
+          make test --output-on-failure
   build_uffd:
     runs-on: ubuntu-latest
     steps:
@@ -64,7 +64,7 @@ jobs:
           mkdir build && cd build
           cmake -DENABLE_UFFD=ON -DCMAKE_INSTALL_PREFIX=. ..
           make install -j8
-          sudo ctest
+          sudo ctest --output-on-failure
   build_uffd_zstd:
     runs-on: ubuntu-latest
     steps:
@@ -86,4 +86,4 @@ jobs:
           mkdir build && cd build
           cmake -DENABLE_UFFD=ON -DENABLE_ZSTD=ON -DCMAKE_INSTALL_PREFIX=. ..
           make install -j8
-          sudo ctest
+          sudo ctest --output-on-failure

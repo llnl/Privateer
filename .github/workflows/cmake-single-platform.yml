@@ -45,6 +45,17 @@ jobs:
           cmake -DENABLE_ZSTD=ON -DCMAKE_INSTALL_PREFIX=. -DCMAKE_BUILD_TYPE=Debug ..
           make install -j8
           ctest --output-on-failure
+  build_zstd_upterm:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup upterm session
+      uses: lhotari/action-upterm@v1
+      with:
+        ## limits ssh access and adds the ssh public key for the user which triggered the workflow
+        limit-access-to-actor: true
+        ## limits ssh access and adds the ssh public keys of the listed GitHub users
+        limit-access-to-users: karimyoussef91
   build_uffd:
     runs-on: ubuntu-latest
     steps:

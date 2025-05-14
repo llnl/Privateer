@@ -22,6 +22,7 @@
 #include <thread>
 #include <mutex>
 #include <omp.h>
+#include <memory>
 
 #ifdef USERFAULTFD
 #define _GNU_SOURCE
@@ -43,8 +44,9 @@
 #include "block_storage.hpp"
 
 #ifdef USE_COMPRESSION
-#include "utility/compression.hpp"
+  #include "utility/compression.hpp"
 #endif
+
 #include "spdlog/spdlog.h"
 
 class virtual_memory_manager {
@@ -142,7 +144,6 @@ class virtual_memory_manager {
       m_version_metadata_path = version_metadata_path;
 
       m_block_storage = new block_storage(blocks_path, stash_path, m_block_size);
-
       
       // mmap region with full size
       int flags = MAP_ANONYMOUS | MAP_PRIVATE | MAP_NORESERVE;
@@ -273,6 +274,7 @@ class virtual_memory_manager {
         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading blocks path file");
       } 
       m_block_storage = new block_storage(blocks_dir_path, stash_path);
+
       m_block_size = m_block_storage->get_block_granularity();
       std::string metadata_file_name = std::string(m_version_metadata_path) + "/_metadata";
       int flags = read_only? O_RDONLY: O_RDWR;
@@ -631,21 +633,27 @@ class virtual_memory_manager {
         int prot = is_write_fault ? PROT_WRITE : PROT_READ;
 
         // Check if backing block exists
+        SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Getting block path info");
         int backing_block_fd = -1;
         std::string backing_block_path = "";
         std::string stash_backing_block_path = m_block_storage->get_block_stash_path(block_index);
         std::string blocks_path = m_block_storage->get_blocks_path();
+        std::string block_hash = blocks_ids[block_index];
         // std::cout << "block_index = " << block_index << std::endl;
+        SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Getting block path info DONE");
         if (!stash_backing_block_path.empty()){
           // std::cout << "Getting block: " << block_index << " from stash " << stash_backing_block_path << std::endl;
           backing_block_path = stash_backing_block_path;
         }
-        else if(blocks_ids[block_index].compare(EMPTY_BLOCK_HASH) != 0){
+        else if(block_hash.compare(EMPTY_BLOCK_HASH) != 0){
           // std::cout << "Getting block: " << block_index << " from blocks " << blocks_ids[block_index] << std::endl;
-          backing_block_path = m_block_storage->get_block_full_path(block_index, blocks_ids[block_index]) + "/" + blocks_ids[block_index];
+          backing_block_path = m_block_storage->get_block_full_path(block_index, block_hash) + "/" + block_hash;
+          SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Backing block path: ", backing_block_path.c_str());
+          // std::cout << "GOT block: " << block_index << " from blocks " << blocks_ids[block_index] << std::endl;
         }
 
         if (!backing_block_path.empty()){ // Backing block exists
+          SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Backing block exists");
 #ifndef __linux__
           // shm_open
           boost::uuids::uuid uuid = boost::uuids::random_generator()();
@@ -676,12 +684,17 @@ class virtual_memory_manager {
           }
 
           // read block content into temporary buffer
+#ifdef USE_SMARTCACHE
+        SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Loading Data");
+        m_block_storage->load_block(block_hash, temp_buffer);
+        SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Loaded Data");
+#else
           backing_block_fd = open(backing_block_path.c_str(), O_RDONLY);
           if (backing_block_fd == -1){
             SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error opening backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
             exit(-1);
           }
-#ifdef USE_COMPRESSION
+  #ifdef USE_COMPRESSION
           // std::cout << "USING COMPRESSION DECOMPRESSING" << std::endl;
           size_t compressed_block_size = utility::get_file_size(backing_block_path.c_str());
           void* const read_buffer = malloc(compressed_block_size);
@@ -691,18 +704,19 @@ class virtual_memory_manager {
           }
           size_t decompressed_size = utility::decompress(read_buffer, temp_buffer, compressed_block_size);
           free(read_buffer);
-#else
+  #else
 
           if (pread(backing_block_fd, temp_buffer, m_block_size, 0) == -1){
             SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
             exit(-1);
           }
-#endif
+  #endif
 
           if (::close(backing_block_fd) == -1){
             SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error closing backing block {} - {}", backing_block_path, strerror(errno));
             exit(-1);
           }
+#endif
 
 #ifndef __linux__
           // mmap original block
@@ -744,6 +758,7 @@ class virtual_memory_manager {
           }
         }
         else{ // No backing block yet, just change mprotect
+        SPDLOG_LOGGER_TRACE(spdlog::default_logger(), "Backing block DOES NOT exists");
           if (mprotect((void*) block_address, m_block_size, prot) == -1){
             SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error changing PROT for block {} - {}", block_address, strerror(errno));
             exit(-1);
@@ -862,6 +877,7 @@ class virtual_memory_manager {
             std::string backing_block_path = ""; // printf("Handler 424 %d\n", syscall(SYS_gettid)); // std::cout << "Handler 424\n";
             std::string stash_backing_block_path = m_block_storage->get_block_stash_path(block_index); // std::cout << "Handler 425" << std::endl;
             std::string blocks_path = m_block_storage->get_blocks_path(); // std::cout << "Handler 426" << std::endl;
+            std::string block_hash = blocks_ids[block_index];
             // std::cout << "Handler 427" << std::endl;
             // std::cout << "Handler 427 DASH NEW" << std::endl;
             // std::cout << blocks_ids[block_index] << std::endl;
@@ -871,9 +887,9 @@ class virtual_memory_manager {
               // std::cout << "Getting block: " << block_index << " from stash " << stash_backing_block_path << std::endl;
               backing_block_path = stash_backing_block_path;
             }
-            else if(blocks_ids[block_index].compare(EMPTY_BLOCK_HASH) != 0){ // std::cout << "Handler 427 + 2" << std::endl;
+            else if(block_hash.compare(EMPTY_BLOCK_HASH) != 0){ // std::cout << "Handler 427 + 2" << std::endl;
               // std::cout << "Getting block: " << block_index << " from blocks " << blocks_ids[block_index] << std::endl;
-              backing_block_path = m_block_storage->get_block_full_path(block_index, blocks_ids[block_index]) + "/" + blocks_ids[block_index];
+              backing_block_path = m_block_storage->get_block_full_path(block_index, block_hash) + "/" + block_hash;
             }  // std::cout << "Handler 436" << std::endl;
             bool is_zero_page = false;
             struct uffdio_copy uffdio_copy;
@@ -1280,7 +1296,7 @@ class virtual_memory_manager {
       std::vector<std::set<uint64_t>> present_blocks; // Change to sub-regions (declaration [done], usage [done])
       std::vector<std::mutex> sub_regions_mutex_list;
 
-     void *zero_page;
+      void *zero_page;
       void *temp_buffer;
 
       // temp start
@@ -1312,7 +1328,6 @@ class virtual_memory_manager {
       std::atomic<uint64_t> next_sub_region = -1;
 #endif
 
-
       const size_t HASH_SIZE = 64;
       const std::string EMPTY_BLOCK_HASH = "0000000000000000000000000000000000000000000000000000000000000000";
 
@@ -1334,6 +1349,7 @@ class virtual_memory_manager {
 
 #ifdef SIGACTION
       void evict_if_needed(){
+        SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: evict_if_needed() - Starting");
         void* to_evict;
         if ((present_blocks.size()*m_block_size) >= m_max_mem_size){
           SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: evict_if_needed() - Evicting");
@@ -1362,6 +1378,7 @@ class virtual_memory_manager {
           }
           present_blocks.erase((uint64_t) to_evict);
         }
+        SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: evict_if_needed() - Finishing");
       }
 #endif
 

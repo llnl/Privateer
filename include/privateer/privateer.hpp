@@ -71,7 +71,15 @@ public:
         exit(-1); */
         spdlog::warn("Privateer: Using existing Privateer root dir at {}", base_path);
         base_dir_path = std::string(base_path);
-        blocks_dir_path = std::string(base_path) + "/" + "blocks";
+        #ifdef USE_SMARTCACHE
+          blocks_dir_path = utility::get_smartcache_environment_variable();
+          if (blocks_dir_path.empty()){
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "SmartCache env var. not set");
+            exit(-1);
+          }
+        #else
+          blocks_dir_path = std::string(base_path) + "/" + "blocks";
+        #endif
         stash_dir_path = std::string(base_path) + "/" + "stash";
         // return; // TODO: uncommented in uffd variant?
       }
@@ -87,7 +95,15 @@ public:
       exit(-1);
     }
     base_dir_path = std::string(base_path);
-    blocks_dir_path = std::string(base_path) + "/" + "blocks";
+    #ifdef USE_SMARTCACHE
+      blocks_dir_path = utility::get_smartcache_environment_variable();
+      if (blocks_dir_path.empty()){
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "SmartCache env var. not set");
+        exit(-1);
+      }
+    #else
+      blocks_dir_path = std::string(base_path) + "/" + "blocks";
+    #endif
     stash_dir_path = std::string(base_path) + "/" + "stash";
   }
 
@@ -99,48 +115,56 @@ public:
    * @param stash_base_path 
    */
   Privateer(int action, const char* base_path, const char* stash_base_path){
- #ifdef SIGACTION
-      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Privateer: Constructor (with stash path) with SIGACTION");
-#endif
+    #ifdef SIGACTION
+          SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Privateer: Constructor (with stash path) with SIGACTION");
+    #endif
 
-#ifdef USERFAULTFD
-      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Privateer: Constructor (with stash path) with USERFAULTFD");
-#endif
-    if (action != CREATE && action != OPEN){
-      SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Invalid action");
-    exit(-1);
-    }
-    if (action == CREATE){
-      if (utility::directory_exists(base_path)){
-        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error creating datastore - base directory already exists, action must be PRIVATEER::OPEN");
+    #ifdef USERFAULTFD
+          SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Privateer: Constructor (with stash path) with USERFAULTFD");
+    #endif
+        if (action != CREATE && action != OPEN){
+          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Invalid action");
         exit(-1);
-      }
+        }
+        if (action == CREATE){
+          if (utility::directory_exists(base_path)){
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error creating datastore - base directory already exists, action must be PRIVATEER::OPEN");
+            exit(-1);
+          }
 
-      if (!utility::create_directory(base_path)){
-        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error creating base directory at {} - {}", base_path, strerror(errno));
-        exit(-1);
-      }
-      /* if (!utility::create_directory(stash_base_path)){
-        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error creating stash directory at {} - {}", stash_base_path, strerror(errno));
-        exit(-1);
-      } */
-    }
-    if (!utility::directory_exists(stash_base_path)){
-      if (!utility::create_directory(stash_base_path)){
-        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error creating stash directory at {} - {}", stash_base_path, strerror(errno));
-        exit(-1);
-      }
-      /* SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error creating datastore - stash directory already exists, action must be PRIVATEER::OPEN");
-      exit(-1); */
-    }
+          if (!utility::create_directory(base_path)){
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error creating base directory at {} - {}", base_path, strerror(errno));
+            exit(-1);
+          }
+          /* if (!utility::create_directory(stash_base_path)){
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error creating stash directory at {} - {}", stash_base_path, strerror(errno));
+            exit(-1);
+          } */
+        }
+        if (!utility::directory_exists(stash_base_path)){
+          if (!utility::create_directory(stash_base_path)){
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error creating stash directory at {} - {}", stash_base_path, strerror(errno));
+            exit(-1);
+          }
+          /* SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error creating datastore - stash directory already exists, action must be PRIVATEER::OPEN");
+          exit(-1); */
+        }
 
-    if (action == OPEN && !utility::directory_exists(base_path)){
-      SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error opening datastore - base directory does not exist, action must be PRIVATEER::CREATE");
-      exit(-1);
-    }
-    base_dir_path = std::string(base_path);
-    blocks_dir_path = std::string(base_path) + "/" + "blocks";
-    stash_dir_path = std::string(stash_base_path) + "/" + "stash";
+        if (action == OPEN && !utility::directory_exists(base_path)){
+          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: Error opening datastore - base directory does not exist, action must be PRIVATEER::CREATE");
+          exit(-1);
+        }
+        base_dir_path = std::string(base_path);
+        #ifdef USE_SMARTCACHE
+          blocks_dir_path = utility::get_smartcache_environment_variable();
+          if (blocks_dir_path.empty()){
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "SmartCache env var. not set");
+            exit(-1);
+          }
+        #else
+          blocks_dir_path = std::string(base_path) + "/" + "blocks";
+        #endif
+        stash_dir_path = std::string(stash_base_path) + "/" + "stash";
   }
 
   /**
@@ -359,20 +383,20 @@ private:
     vmm = new virtual_memory_manager(addr, version_metadata_dir_path, stash_dir_path, read_only);
 
     #ifdef SIGACTION
-    utility::sigsegv_handler_dispatcher::add_virtual_memory_manager((uint64_t) vmm->get_region_start_address(), vmm->current_region_capacity(), vmm);
-    struct sigaction sa;
-    sa.sa_flags = SA_SIGINFO;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_sigaction = utility::sigsegv_handler_dispatcher::handler;
-    if (sigaction(SIGSEGV, &sa, NULL) == -1){
-      SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: sigaction failed");
-      exit(-1);
-    }
+      utility::sigsegv_handler_dispatcher::add_virtual_memory_manager((uint64_t) vmm->get_region_start_address(), vmm->current_region_capacity(), vmm);
+      struct sigaction sa;
+      sa.sa_flags = SA_SIGINFO;
+      sigemptyset(&sa.sa_mask);
+      sa.sa_sigaction = utility::sigsegv_handler_dispatcher::handler;
+      if (sigaction(SIGSEGV, &sa, NULL) == -1){
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Privateer: sigaction failed");
+        exit(-1);
+      }
     #endif
 
     #ifdef USERFAULTFD
-    utility::UFFD::init_uffd();
-    utility::UFFD::register_uffd_region((uint64_t)vmm->get_region_start_address(), vmm->current_region_capacity(), false, vmm);
+      utility::UFFD::init_uffd();
+      utility::UFFD::register_uffd_region((uint64_t)vmm->get_region_start_address(), vmm->current_region_capacity(), false, vmm);
     #endif
 
     return vmm->get_region_start_address();

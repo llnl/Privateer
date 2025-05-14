@@ -125,7 +125,7 @@ FetchContent_Declare(spdlog
 FetchContent_MakeAvailable(spdlog)
 include_directories(${spdlog_INCLUDE_DIRS})
 target_link_libraries(privateer-static PUBLIC spdlog::spdlog)
-add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_ERROR)
+add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
 #endif()
 # --------------------------------------------------
 
@@ -160,6 +160,17 @@ if (ENABLE_PAGE_EVICTION)
   message(STATUS "Configuring with Page Eviction")
 else()
   message(STATUS "Configuring without Page Eviction")
+endif()
+
+set(SMARTCACHE_INSTALL_PATH "" CACHE STRING "")
+
+if(NOT "${SMARTCACHE_INSTALL_PATH}" STREQUAL "")
+  message(STATUS "USING SMARTCACHE at ${SMARTCACHE_INSTALL_PATH}")
+  include_directories(${SMARTCACHE_INSTALL_PATH}/include)
+  link_directories(${SMARTCACHE_INSTALL_PATH}/usr/local/lib64)
+  target_compile_definitions(privateer-static PUBLIC USE_SMARTCACHE)
+  target_link_libraries(privateer-static PUBLIC smartcache_client)
+  target_link_libraries(privateer-static PUBLIC smartcache_core)
 endif()
 
 find_package(MPI)

@@ -151,7 +151,9 @@ TEST_P(PrivateerTest, SimpleWrite) {
   delete priv;
 
   priv = new Privateer(Privateer::OPEN, this->datastore);
+  std::cout << "Init-ed read-only" << std::endl;
   this->data = (size_t*) priv->open_read_only(nullptr, "v0");
+  std::cout << "Opened read-only" << std::endl;
   EXPECT_EQ(this->data[start], 7);
   EXPECT_EQ(this->data[middle], 8);
   EXPECT_EQ(this->data[middle_to_end], 9);

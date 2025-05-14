@@ -27,6 +27,15 @@ namespace utility{
     return value;
   }
 
+  std::string get_smartcache_environment_variable(){
+    char* value_c_str = std::getenv("SMARTCACHE_DIR");
+    if (value_c_str == NULL){
+      return std::string();
+    }
+    return std::string(value_c_str);
+    
+  }
+
   inline size_t get_available_memory(){ // Taken from: https://github.com/LLNL/umap/blob/develop/src/umap/Buffer.cpp#L269
     uint64_t mem_avail_kb = 0;
     unsigned long mem;

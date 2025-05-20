@@ -249,9 +249,9 @@ install(DIRECTORY include/privateer DESTINATION include)
 install(TARGETS privateer EXPORT PrivateerTargets DESTINATION lib)
 install(EXPORT PrivateerTargets DESTINATION lib/cmake/privateer)
 
-option (BUILD_TEST "Build Privateer test" Off)
+option (PRIVATEER_BUILD_TEST "Build Privateer test" Off)
 
-if (BUILD_TEST)
+if (PRIVATEER_BUILD_TEST)
   include(CTest)
   enable_testing()
   add_subdirectory(test)

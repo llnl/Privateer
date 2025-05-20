@@ -234,7 +234,7 @@ if(PRIVATEER_USE_SMARTCACHE)
   add_dependencies(SmartCacheBuildCode SmartCacheBuildDependencies)
   add_dependencies(privateer SmartCacheBuildCode)
 
-  include_directories(${SmartCache_BINARY_DIR}/include)
+  target_include_directories(privateer PUBLIC ${SmartCache_BINARY_DIR}/include)
   # link_directories(${SmartCache_BINARY_DIR}/usr/local/lib64)
   target_link_directories(privateer PUBLIC ${SmartCache_BINARY_DIR}/usr/local/lib64)
   target_compile_definitions(privateer PUBLIC USE_SMARTCACHE)

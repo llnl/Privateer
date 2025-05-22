@@ -83,47 +83,11 @@ class virtual_memory_manager {
       }
       SPDLOG_LOGGER_INFO(spdlog::default_logger(), "num_msync_threads: {}", num_msync_threads);
 #endif
-
-      /* if (region_max_capacity % num_blocks == 0){
-         m_block_size = region_max_capacity / num_blocks;
-         }
-         else{
-         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: PRIVATEER_NUM_BLOCKS is set, but region capacity is not divisible by it");
-         exit(-1);
-         } */
-        
-      // Verify multiple of system's page size
-      /* if (m_block_size % pagesize != 0){
-
-         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: block_size must be multiple of system page size ({})", pagesize);
-         exit(-1);
-         } */
-      // Verity region capacity is multiple of block size
-
       m_block_size = block_size;
       if (region_max_capacity % m_block_size != 0 && region_max_capacity != 0){
         // Round capacity to nearest larger multiple of block size
         region_max_capacity = ((region_max_capacity / m_block_size) + 1) * m_block_size;
-        /*
-          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: region_max_capacity = {}", region_max_capacity);
-          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: m_block_size = {}", m_block_size);
-          if (region_max_capacity > m_block_size){
-          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: region size must be a non-zero multiple of block size");
-          exit(-1);
-          }
-          else{
-          // std::cout << "WARNING: region capacity less than block size, setting block size to region capacity" << std::endl;
-          m_block_size = region_max_capacity;
-          } */
       }
-
-      /*
-      if (region_max_capacity < m_block_size){
-        spdlog::warn("region capacity less than block size, setting block size to region capacity");
-        spdlog::warn("{} < {}", region_max_capacity, m_block_size);
-        m_block_size = region_max_capacity;
-      } */
-      // std::cout << "m_block_size after check: " << m_block_size << std::endl;
 
       size_t max_mem_size_blocks = utility::get_environment_variable("PRIVATEER_MAX_MEM_BLOCKS");
       if ( std::isnan((double)max_mem_size_blocks) || max_mem_size_blocks == 0){
@@ -1059,8 +1023,8 @@ class virtual_memory_manager {
       }
     }
 
-    size_t version_block_size(std::string version_path){
-      std::string blocks_path_file_name = std::string(version_path) + "/_blocks_path";
+    static size_t version_block_size(std::string version_path){
+      /* std::string blocks_path_file_name = std::string(version_path) + "/_blocks_path";
       std::ifstream blocks_path_file;
       std::string blocks_dir_path;
       
@@ -1073,7 +1037,20 @@ class virtual_memory_manager {
         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading blocks path file");
         exit(-1);
       } 
-      return m_block_storage->get_version_block_granularity(blocks_dir_path);
+      return m_block_storage->get_version_block_granularity(blocks_dir_path); */
+      std::string granularity_string;
+        std::string granularity_file_name = version_path + "/_granularity";
+        std::ifstream granularity_file;
+        granularity_file.open(granularity_file_name);
+        if (!granularity_file.is_open()){
+          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error opening block granularity metadata");
+          exit(-1);
+        }
+        if (!std::getline(granularity_file, granularity_string)){
+          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error opening block granularity metadata");
+          exit(-1);
+        }
+        return std::stol(granularity_string);
     }
 
     size_t current_region_capacity(){
@@ -1521,5 +1498,11 @@ class virtual_memory_manager {
           capacity_file.open(capacity_file_name);
           capacity_file << version_capacity;
           capacity_file.close();
+
+          std::string granularity_file_name = std::string(version_metadata_dir_path) + "/_granularity";
+          std::ofstream granularity_file;
+          granularity_file.open(granularity_file_name);
+          granularity_file << m_block_size;
+          granularity_file.close();
         }
       };

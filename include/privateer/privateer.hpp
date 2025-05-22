@@ -364,8 +364,8 @@ public:
    * @param version_path
    * @return version block size
    */
-  size_t version_block_size(std::string version_path){
-    return vmm->version_block_size(version_path);
+  static size_t version_block_size(std::string version_path){
+    return virtual_memory_manager::version_block_size(version_path);
   }
 
   size_t region_size();

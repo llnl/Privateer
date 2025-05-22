@@ -302,7 +302,7 @@ class block_storage
       return true;
     }
 
-    size_t get_version_block_granularity(std::string blocks_path){
+    /* size_t get_version_block_granularity(std::string blocks_path){
       #ifdef USE_SMARTCACHE
         return smc_client->get_block_size();
       #else
@@ -320,7 +320,7 @@ class block_storage
         }
         return std::stol(granularity_string);
       #endif
-    }
+    } */
 
     
 

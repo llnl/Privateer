@@ -1059,7 +1059,7 @@ class virtual_memory_manager {
       }
     }
 
-    size_t static version_block_size(std::string version_path){
+    size_t version_block_size(std::string version_path){
       std::string blocks_path_file_name = std::string(version_path) + "/_blocks_path";
       std::ifstream blocks_path_file;
       std::string blocks_dir_path;
@@ -1073,7 +1073,7 @@ class virtual_memory_manager {
         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading blocks path file");
         exit(-1);
       } 
-      return block_storage::get_version_block_granularity(blocks_dir_path);
+      return m_block_storage->get_version_block_granularity(blocks_dir_path);
     }
 
     size_t current_region_capacity(){

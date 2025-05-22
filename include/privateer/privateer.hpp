@@ -358,9 +358,19 @@ public:
     return utility::directory_exists(version_full_path.c_str());
   }
 
+    /**
+   * @brief Get version block size
+   *
+   * @param version_path
+   * @return version block size
+   */
+  size_t version_block_size(std::string version_path){
+    return vmm->version_block_size(version_path);
+  }
+
   size_t region_size();
   static size_t version_capacity(std::string version_path);
-  static size_t version_block_size(std::string version_path);
+  // static size_t version_block_size(std::string version_path);
   static const int CREATE = 0;
   static const int OPEN = 1;
 
@@ -459,12 +469,4 @@ inline size_t Privateer::version_capacity(std::string version_path){
   return virtual_memory_manager::version_capacity(version_path);
 }
 
-/**
- * @brief Get version block size
- *
- * @param version_path
- * @return version block size
- */
-inline size_t Privateer::version_block_size(std::string version_path){
-  return virtual_memory_manager::version_block_size(version_path);
-}
+

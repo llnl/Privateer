@@ -247,7 +247,7 @@ find_package(MPI)
 # Export the library dependencies
 install(DIRECTORY include/privateer DESTINATION include)
 install(TARGETS privateer EXPORT PrivateerTargets DESTINATION lib)
-install(EXPORT PrivateerTargets DESTINATION lib/cmake/privateer)
+# install(EXPORT PrivateerTargets DESTINATION lib/cmake/privateer)
 
 option (PRIVATEER_BUILD_TEST "Build Privateer test" Off)
 

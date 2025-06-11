@@ -121,6 +121,7 @@ endif()
 # ------------------SPDLOG----------------------------
 #option(ENABLE_SPDLOG "Enable logging" OFF)
 #if (ENABLE_SPDLOG)
+set(SPDLOG_BUILD_SHARED ON CACHE BOOL "" FORCE)
 message(STATUS "Configuring with spdlog")
 FetchContent_Declare(spdlog
   URL https://github.com/gabime/spdlog/archive/refs/tags/v1.14.1.tar.gz)
@@ -141,7 +142,7 @@ message(STATUS "spdlog libraries: ${spdlog_BINARY_DIR}")
 
 set_target_properties(spdlog PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${spdlog_SOURCE_DIR}/include"
-    INTERFACE_LINK_LIBRARIES "${spdlog_BINARY_DIR}/libspdlog.a"
+    INTERFACE_LINK_LIBRARIES "${spdlog_BINARY_DIR}/libspdlog.so"
 )
 
 #endif()

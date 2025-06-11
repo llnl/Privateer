@@ -141,7 +141,7 @@ message(STATUS "spdlog libraries: ${spdlog_BINARY_DIR}")
 
 set_target_properties(spdlog PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${spdlog_SOURCE_DIR}/include"
-    INTERFACE_LINK_LIBRARIES "${spdlog_BINARY_DIR}/libspdlog.so"
+    INTERFACE_LINK_LIBRARIES "${spdlog_BINARY_DIR}/libspdlog.a"
 )
 
 #endif()

@@ -87,20 +87,20 @@ include_directories(src)
 set(privateer_headers include/privateer/c_api/privateer.h include/privateer/privateer.hpp)
 set(privateer_src src/privateer_c.cpp ${privateer_headers})
 
-# add_library(privateer SHARED ${privateer_src} )
-add_library(privateer-static STATIC ${privateer_src} )
+add_library(privateer SHARED ${privateer_src} )
+# add_library(privateer-static STATIC ${privateer_src} )
 
 find_package(OpenSSL REQUIRED)
-# TARGET_LINK_LIBRARIES(privateer rt)
-target_link_libraries(privateer-static PUBLIC rt)
-# TARGET_LINK_LIBRARIES(privateer OpenSSL::SSL)
-target_link_libraries(privateer-static PUBLIC OpenSSL::SSL)
-# TARGET_LINK_LIBRARIES(privateer OpenSSL::Crypto)
-target_link_libraries(privateer-static PUBLIC OpenSSL::Crypto)
+TARGET_LINK_LIBRARIES(privateer rt)
+# target_link_libraries(privateer-static PUBLIC rt)
+TARGET_LINK_LIBRARIES(privateer OpenSSL::SSL)
+# target_link_libraries(privateer-static PUBLIC OpenSSL::SSL)
+TARGET_LINK_LIBRARIES(privateer OpenSSL::Crypto)
+# target_link_libraries(privateer-static PUBLIC OpenSSL::Crypto)
 
 # File System
-# TARGET_LINK_LIBRARIES(privateer stdc++fs)
-target_link_libraries(privateer-static PUBLIC stdc++fs)
+TARGET_LINK_LIBRARIES(privateer stdc++fs)
+# target_link_libraries(privateer-static PUBLIC stdc++fs)
 
 # ZSTD
 # ------------------ZSTD----------------------------
@@ -109,9 +109,12 @@ if (ENABLE_ZSTD)
   message(STATUS "Configuring with zstd")
   list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
   find_package(zstd REQUIRED)
-  target_include_directories(privateer-static PUBLIC ${ZSTD_INCLUDE_DIRS})
-  target_link_libraries(privateer-static PUBLIC zstd::zstd)
-  target_compile_definitions(privateer-static PUBLIC USE_COMPRESSION)
+  # target_include_directories(privateer-static PUBLIC ${ZSTD_INCLUDE_DIRS})
+  # target_link_libraries(privateer-static PUBLIC zstd::zstd)
+  # target_compile_definitions(privateer-static PUBLIC USE_COMPRESSION)
+  target_include_directories(privateer PUBLIC ${ZSTD_INCLUDE_DIRS})
+  target_link_libraries(privateer PUBLIC zstd::zstd)
+  target_compile_definitions(privateer PUBLIC USE_COMPRESSION)
 endif()
 # --------------------------------------------------
 
@@ -124,7 +127,8 @@ FetchContent_Declare(spdlog
   URL https://github.com/gabime/spdlog/archive/refs/tags/v1.14.1.tar.gz)
 FetchContent_MakeAvailable(spdlog)
 include_directories(${spdlog_INCLUDE_DIRS})
-target_link_libraries(privateer-static PUBLIC spdlog::spdlog)
+# target_link_libraries(privateer-static PUBLIC spdlog::spdlog)
+target_link_libraries(privateer PUBLIC spdlog::spdlog)
 add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_ERROR)
 #endif()
 # --------------------------------------------------
@@ -133,9 +137,9 @@ add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_ERROR)
 # TARGET_LINK_LIBRARIES(privateer boost_iostreams)
 # TARGET_LINK_LIBRARIES(privateer-static boost_iostreams)
 
-set_target_properties(privateer-static PROPERTIES OUTPUT_NAME privateer)
+# set_target_properties(privateer-static PROPERTIES OUTPUT_NAME privateer)
 
-install(TARGETS  privateer-static # Removed "privateer" from here
+install(TARGETS  privateer # Removed "privateer-static" from here
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib
         RUNTIME DESTINATION bin )
@@ -147,16 +151,19 @@ install(DIRECTORY include/privateer DESTINATION include)
 
 option(ENABLE_UFFD "Enable userfaultfd" OFF)
 if (ENABLE_UFFD)
-  target_compile_definitions(privateer-static PUBLIC USERFAULTFD)
+  # target_compile_definitions(privateer-static PUBLIC USERFAULTFD)
+  target_compile_definitions(privateer PUBLIC USERFAULTFD)
   message(STATUS "Configuring with UFFD")
 else()
-  target_compile_definitions(privateer-static PUBLIC SIGACTION)
+  # target_compile_definitions(privateer-static PUBLIC SIGACTION)
+  target_compile_definitions(privateer PUBLIC USERFAULTFD)
   message(STATUS "Configuring with SIGACTION")
 endif()
 
 option(ENABLE_PAGE_EVICTION "Enable page eviction" OFF)
 if (ENABLE_PAGE_EVICTION)
-  target_compile_definitions(privateer-static PUBLIC ENABLE_PAGE_EVICTION)
+  # target_compile_definitions(privateer-static PUBLIC ENABLE_PAGE_EVICTION)
+  target_compile_definitions(privateer PUBLIC USERFAULTFD)
   message(STATUS "Configuring with Page Eviction")
 else()
   message(STATUS "Configuring without Page Eviction")

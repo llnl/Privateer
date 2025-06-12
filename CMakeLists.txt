@@ -91,15 +91,15 @@ add_library(privateer SHARED ${privateer_src} )
 # add_library(privateer-static STATIC ${privateer_src} )
 
 find_package(OpenSSL REQUIRED)
-TARGET_LINK_LIBRARIES(privateer rt)
+target_link_libraries(privateer PUBLIC rt)
 # target_link_libraries(privateer-static PUBLIC rt)
-TARGET_LINK_LIBRARIES(privateer OpenSSL::SSL)
+target_link_libraries(privateer PUBLIC OpenSSL::SSL)
 # target_link_libraries(privateer-static PUBLIC OpenSSL::SSL)
-TARGET_LINK_LIBRARIES(privateer OpenSSL::Crypto)
+target_link_libraries(privateer PUBLIC OpenSSL::Crypto)
 # target_link_libraries(privateer-static PUBLIC OpenSSL::Crypto)
 
 # File System
-TARGET_LINK_LIBRARIES(privateer stdc++fs)
+target_link_libraries(privateer PUBLIC stdc++fs)
 # target_link_libraries(privateer-static PUBLIC stdc++fs)
 
 # ZSTD

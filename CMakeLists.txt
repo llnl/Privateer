@@ -87,7 +87,7 @@ include_directories(src)
 set(privateer_headers include/privateer/c_api/privateer.h include/privateer/privateer.hpp)
 set(privateer_src src/privateer_c.cpp ${privateer_headers})
 
-add_library(privateer SHARED ${privateer_src} )
+add_library(privateer STATIC ${privateer_src} )
 # add_library(privateer-static STATIC ${privateer_src} )
 
 find_package(OpenSSL REQUIRED)
@@ -122,7 +122,7 @@ endif()
 # ------------------SPDLOG----------------------------
 #option(ENABLE_SPDLOG "Enable logging" OFF)
 #if (ENABLE_SPDLOG)
-set(SPDLOG_BUILD_SHARED ON CACHE BOOL "" FORCE)
+# set(SPDLOG_BUILD_SHARED ON CACHE BOOL "" FORCE)
 message(STATUS "Configuring with spdlog")
 FetchContent_Declare(spdlog
   URL https://github.com/gabime/spdlog/archive/refs/tags/v1.14.1.tar.gz)

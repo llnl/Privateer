@@ -172,7 +172,14 @@ endif()
 
 find_package(MPI)
 
-include(CTest)
-enable_testing()
-add_subdirectory(examples)
-add_subdirectory(test)
+option(ENABLE_PRIVATEER_TEST  "Enable Testing" ON)
+if (ENABLE_PRIVATEER_TEST)
+  include(CTest)
+  enable_testing()
+  add_subdirectory(test)
+endif()
+
+option(ENBALE_PRIVATEER_EXAMPLES "Enable examples" ON)
+if (ENBALE_PRIVATEER_EXAMPLES)
+  add_subdirectory(examples)
+endif()

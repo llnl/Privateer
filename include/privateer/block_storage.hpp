@@ -169,70 +169,81 @@ class block_storage
         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error mmapping temp buffer for stash block - {}", strerror(errno));
         exit(-1);
       }
-      std::string block_hash = utility::compute_hash((char*) temp_buffer, block_granularity);
-      if (close(block_fd) == -1){
-        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error closing file - {}", strerror(errno));
-        exit(-1);
-      }
-      // Get block subdirectory
-      std::string subdirectory_name;
-      bool is_stash = is_multi_tiered();
-      subdirectory_name = get_blocks_subdirectory(block_hash, is_stash);
-      // Rename block
-      std::string final_filename = subdirectory_name + "/" + block_hash;
-      std::string stash_filename = stash_directory + "/" + stash_block_ids[block_index];
-      if (!utility::file_exists(final_filename.c_str())){
-        // Rename
-        int rename_status = rename(stash_filename.c_str(),final_filename.c_str());
-        if (rename_status != 0){
-          if (utility::file_exists(final_filename.c_str())){
-            int remove_status = remove(stash_filename.c_str());
-            if (remove_status != 0){
-              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error removing stash file");
-              return "";
-            }
-            stash_block_ids.erase(block_index);
-            if (is_multi_tiered()){
-              // storing to only base_directory since stash has already been stored
-              block_hash = store_block(temp_buffer, true, block_index, false, block_hash);
-              if (block_hash.empty()){
-                SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error committing stash block with index {} to base path", block_index);
-                return "";
-              }
-              // store block must have two versions ?? STOPPED HERE
-            }
-            return block_hash;
-          }
-          else{
-            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error renaming file {}", strerror(errno));
-            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Stash file name = {}", stash_filename);
-            return "";
-          }
-        }
-        else{
-          block_hash = store_block(temp_buffer, true, block_index, false, block_hash);
-          if (block_hash.empty()){
+
+      #ifdef USE_COMPRESSION
+        std::string block_hash = store_block(temp_buffer, true, block_index, false, block_hash);
+        if (block_hash.empty()){
             SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error committing stash block with index {} to base path", block_index);
             return "";
           }
           stash_block_ids.erase(block_index);
           return block_hash;
+      #else
+        std::string block_hash = utility::compute_hash((char*) temp_buffer, block_granularity);
+        if (close(block_fd) == -1){
+          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error closing file - {}", strerror(errno));
+          exit(-1);
         }
-      }
-      else{
-        int remove_status = remove(stash_filename.c_str());
-        if (remove_status != 0){
-          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error removing stash file");
-          return "";
+        // Get block subdirectory
+        std::string subdirectory_name;
+        bool is_stash = is_multi_tiered();
+        subdirectory_name = get_blocks_subdirectory(block_hash, is_stash);
+        // Rename block
+        std::string final_filename = subdirectory_name + "/" + block_hash;
+        std::string stash_filename = stash_directory + "/" + stash_block_ids[block_index];
+        if (!utility::file_exists(final_filename.c_str())){
+          // Rename
+          int rename_status = rename(stash_filename.c_str(),final_filename.c_str());
+          if (rename_status != 0){
+            if (utility::file_exists(final_filename.c_str())){
+              int remove_status = remove(stash_filename.c_str());
+              if (remove_status != 0){
+                SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error removing stash file");
+                return "";
+              }
+              stash_block_ids.erase(block_index);
+              if (is_multi_tiered()){
+                // storing to only base_directory since stash has already been stored
+                block_hash = store_block(temp_buffer, true, block_index, false, block_hash);
+                if (block_hash.empty()){
+                  SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error committing stash block with index {} to base path", block_index);
+                  return "";
+                }
+                // store block must have two versions ?? STOPPED HERE
+              }
+              return block_hash;
+            }
+            else{
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error renaming file {}", strerror(errno));
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Stash file name = {}", stash_filename);
+              return "";
+            }
+          }
+          else{
+            block_hash = store_block(temp_buffer, true, block_index, false, block_hash);
+            if (block_hash.empty()){
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error committing stash block with index {} to base path", block_index);
+              return "";
+            }
+            stash_block_ids.erase(block_index);
+            return block_hash;
+          }
         }
-        block_hash = store_block(temp_buffer, true, block_index, false, block_hash);
-        if (block_hash.empty()){
-          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error committing stash block with index {} to base path", block_index);
-          return "";
+        else{
+          int remove_status = remove(stash_filename.c_str());
+          if (remove_status != 0){
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error removing stash file");
+            return "";
+          }
+          /* block_hash = store_block(temp_buffer, true, block_index, false, block_hash);
+          if (block_hash.empty()){
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error committing stash block with index {} to base path", block_index);
+            return "";
+          } */
+          stash_block_ids.erase(block_index);
+          return block_hash;
         }
-        stash_block_ids.erase(block_index);
-        return block_hash;
-      }
+      #endif
     }
 
     std::string get_block_full_path(uint64_t block_index, std::string block_hash){

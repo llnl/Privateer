@@ -244,6 +244,11 @@ class block_storage
           return block_hash;
         }
       #endif
+      int munmap_status = munmap(temp_buffer, block_granularity);
+      if (munmap_status == -1){
+        SPDLOG_ERROR("Error unmapping temporary buffer while unstashing");
+        exit(-1);
+      }
     }
 
     std::string get_block_full_path(uint64_t block_index, std::string block_hash){

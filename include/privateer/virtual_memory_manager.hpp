@@ -683,14 +683,25 @@ class virtual_memory_manager {
           }
 #ifdef USE_COMPRESSION
           // std::cout << "USING COMPRESSION DECOMPRESSING" << std::endl;
-          size_t compressed_block_size = utility::get_file_size(backing_block_path.c_str());
-          void* const read_buffer = malloc(compressed_block_size);
-          if (pread(backing_block_fd, read_buffer, compressed_block_size, 0) == -1){
-            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
-            exit(-1);
+          if (stash_backing_block_path.empty()){
+            // std::cout << "Reading backing block: " << backing_block_path << std::endl;
+          
+            size_t compressed_block_size = utility::get_file_size(backing_block_path.c_str());
+            void* const read_buffer = malloc(compressed_block_size);
+            if (pread(backing_block_fd, read_buffer, compressed_block_size, 0) == -1){
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
+              exit(-1);
+            }
+            size_t decompressed_size = utility::decompress(read_buffer, temp_buffer, compressed_block_size);
+            free(read_buffer);
           }
-          size_t decompressed_size = utility::decompress(read_buffer, temp_buffer, compressed_block_size);
-          free(read_buffer);
+          else{
+            if (pread(backing_block_fd, temp_buffer, m_block_size, 0) == -1){
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
+              exit(-1);
+            }
+            // std::cout << "Reading stashed backing block: " << backing_block_path << std::endl;
+          }
 #else
 
           if (pread(backing_block_fd, temp_buffer, m_block_size, 0) == -1){

@@ -100,12 +100,14 @@ class block_storage
       bool file_exists = false;
       int block_fd = -1;
       if (stash_block_ids.find(block_index) != stash_block_ids.end()){
+        SPDLOG_LOGGER_INFO(spdlog::default_logger(), "file exists while stashing");
         block_UUID = stash_block_ids[block_index];
         file_exists = true;
       }
       else{
         boost::uuids::uuid uuid = boost::uuids::random_generator()();
         block_UUID = boost::lexical_cast<std::string>(uuid);
+        SPDLOG_LOGGER_INFO(spdlog::default_logger(), "block index - {} block UUID - {}", block_index, block_UUID.c_str());
         stash_block_ids.insert(std::pair<uint64_t,std::string>(block_index, block_UUID));
       }
       block_temp_path = stash_directory + "/" + block_UUID;
@@ -158,7 +160,8 @@ class block_storage
         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error - block with index {} has no backing stash file", block_index);
         exit(-1);
       }
-      std::string block_stash_path = stash_directory + "/" + stash_block_ids[block_index];
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "block_index - {}", std::to_string(block_index));
+      std::string block_stash_path = stash_directory + "/" + stash_block_ids[block_index]; // stash_block_ids[block_index];
       int block_fd = ::open(block_stash_path.c_str(), O_RDONLY);
       if (block_fd == -1){
         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error opening stash file - {}", strerror(errno));
@@ -176,7 +179,13 @@ class block_storage
             SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error committing stash block with index {} to base path", block_index);
             return "";
           }
+          SPDLOG_LOGGER_INFO(spdlog::default_logger(), "stash_block_ids.erase(block_index) - {}", std::to_string(block_index));
           stash_block_ids.erase(block_index);
+          int munmap_status = munmap(temp_buffer, block_granularity);
+          if (munmap_status == -1){
+            SPDLOG_ERROR("Error unmapping temporary buffer while unstashing");
+            exit(-1);
+          }
           return block_hash;
       #else
         std::string block_hash = utility::compute_hash((char*) temp_buffer, block_granularity);
@@ -241,14 +250,15 @@ class block_storage
             return "";
           } */
           stash_block_ids.erase(block_index);
+          int munmap_status = munmap(temp_buffer, block_granularity);
+          if (munmap_status == -1){
+            SPDLOG_ERROR("Error unmapping temporary buffer while unstashing");
+            exit(-1);
+          }
           return block_hash;
         }
       #endif
-      int munmap_status = munmap(temp_buffer, block_granularity);
-      if (munmap_status == -1){
-        SPDLOG_ERROR("Error unmapping temporary buffer while unstashing");
-        exit(-1);
-      }
+      
     }
 
     std::string get_block_full_path(uint64_t block_index, std::string block_hash){
@@ -552,7 +562,7 @@ class block_storage
         block_fd_temp_name[fd] = temporary_file_name_template;
       } */
       std::pair<int, std::string> fd_name (fd,std::string(temporary_file_name_template));
-      delete temporary_file_name_template;
+      delete [] temporary_file_name_template;
       return fd_name;
     }
 

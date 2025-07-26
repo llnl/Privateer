@@ -430,6 +430,7 @@ class virtual_memory_manager {
 
 #ifdef SIGACTION
     void msync(){
+      printf("virtual_memory_manager: msync() - start\n");
       // 1) Write dirty_lru
       SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: msync() - Msync Write Dirty LRU");
       std::vector<uint64_t> dirty_lru_vector(dirty_lru.begin(), dirty_lru.end());
@@ -520,13 +521,14 @@ class virtual_memory_manager {
       SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: msync() - Msync Commit Stashed Blocks");
       std::vector<uint64_t> stash_vector(stash_set[sub_region_index].begin(), stash_set[sub_region_index].end());
 #endif
-#pragma omp parallel for
+#pragma omp parallel for shared(m_block_storage)
       for (auto stash_iterator = stash_vector.begin(); stash_iterator != stash_vector.end(); ++stash_iterator){
-        block_storage block_storage_local(*m_block_storage);
+        // block_storage block_storage_local(*m_block_storage);
         void* block_address = (void*) *stash_iterator;
         uint64_t block_index = ((uint64_t) block_address - (uint64_t) m_region_start_address) / m_block_size;
 #pragma omp critical
         {
+          printf("Committing stash block\n");
           std::string block_hash = /* block_storage_local.*/ m_block_storage->commit_stash_block(block_index);
           if (block_hash.empty()){
             SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error committing stash block with address: {} - {}", (uint64_t) block_address, strerror(errno));
@@ -539,6 +541,7 @@ class virtual_memory_manager {
 #ifdef SIGACTION
       stash_set.clear();
       update_metadata();
+      printf("virtual_memory_manager: msync() - end\n");
 #endif
 #ifdef USERFAULTFD
       stash_set[sub_region_index].clear();

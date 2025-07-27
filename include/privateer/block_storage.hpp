@@ -186,6 +186,11 @@ class block_storage
             SPDLOG_ERROR("Error unmapping temporary buffer while unstashing");
             exit(-1);
           }
+          int remove_status = remove(block_stash_path.c_str());
+          if (remove_status != 0){
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error removing stash file");
+            return "";
+          }
           return block_hash;
       #else
         std::string block_hash = utility::compute_hash((char*) temp_buffer, block_granularity);

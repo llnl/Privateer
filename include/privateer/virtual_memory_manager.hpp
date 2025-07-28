@@ -687,13 +687,21 @@ class virtual_memory_manager {
             // std::cout << "Reading backing block: " << backing_block_path << std::endl;
           
             size_t compressed_block_size = utility::get_file_size(backing_block_path.c_str());
-            void* const read_buffer = malloc(compressed_block_size);
+            if (compressed_block_size > m_block_size){
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error backing block {} size {} is larger than expected block size {}", backing_block_path, compressed_block_size, m_block_size);
+              exit(-1);
+            }
+            void* const read_buffer = mmap(nullptr, compressed_block_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0); // malloc(compressed_block_size);
             if (pread(backing_block_fd, read_buffer, compressed_block_size, 0) == -1){
               SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
               exit(-1);
             }
             size_t decompressed_size = utility::decompress(read_buffer, temp_buffer, compressed_block_size);
-            free(read_buffer);
+            // free(read_buffer);
+            int munmap_status = munmap(read_buffer, compressed_block_size);
+            if (munmap_status == -1){
+                SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error munmapping read buffer decompression {}", strerror(errno));
+            }
           }
           else{
             if (pread(backing_block_fd, temp_buffer, m_block_size, 0) == -1){
@@ -907,13 +915,17 @@ class virtual_memory_manager {
               // std::cout << "Backing block path: " << backing_block_path.c_str() << std::endl;
               // printf("Starting address: %ld blocks_ids address: %ld Thread ID: %ld", (uint64_t) m_region_start_address, (uint64_t) &blocks_ids[0], (uint64_t) syscall(SYS_gettid));
               size_t compressed_block_size = utility::get_file_size(backing_block_path.c_str());
-              void* const read_buffer = malloc(compressed_block_size);
+              void* const read_buffer = mmap(nullptr, compressed_block_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0); // malloc(compressed_block_size);
               if (pread(backing_block_fd, read_buffer, compressed_block_size, 0) == -1){
                 SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
                 exit(-1);
               }
               size_t decompressed_size = utility::decompress(read_buffer, (void*)(((uint64_t) temp_buffer) + (sub_region_index * m_block_size)), compressed_block_size);
-              free(read_buffer);
+              // free(read_buffer);
+              int munmap_status = munmap(read_buffer, compressed_block_size);
+              if (munmap_status == -1){
+                 SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error munmapping read buffer decompression {}", strerror(errno));
+              }
 #else
               // std::cout << "NOT USING COMPRESSION" << std::endl;
               if (pread(backing_block_fd, (void*)( ((uint64_t)temp_buffer) + (sub_region_index * m_block_size)), m_block_size, 0) == -1){

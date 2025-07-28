@@ -167,13 +167,23 @@ class block_storage
         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error opening stash file - {}", strerror(errno));
         exit(-1);
       }
-      void* temp_buffer = mmap(nullptr, block_granularity, PROT_READ, MAP_PRIVATE, block_fd, 0);
+      void* temp_buffer = mmap(nullptr, block_granularity, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1 , 0);
       if (temp_buffer == MAP_FAILED){
         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error mmapping temp buffer for stash block - {}", strerror(errno));
         exit(-1);
       }
 
-      #ifdef USE_COMPRESSION
+      if (pread(block_fd, temp_buffer, block_granularity, 0) == -1){
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(),"Error reading stash file {}", strerror(errno));
+        exit(-1);
+      }
+
+      if (close(block_fd) == -1){
+        SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error closing file - {}", strerror(errno));
+        exit(-1);
+      }
+
+      /* #ifdef USE_COMPRESSION
         std::string block_hash = store_block(temp_buffer, true, block_index, false, block_hash);
         if (block_hash.empty()){
             SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error committing stash block with index {} to base path", block_index);
@@ -192,12 +202,9 @@ class block_storage
             return "";
           }
           return block_hash;
-      #else
+      #else */
         std::string block_hash = utility::compute_hash((char*) temp_buffer, block_granularity);
-        if (close(block_fd) == -1){
-          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error closing file - {}", strerror(errno));
-          exit(-1);
-        }
+        
         // Get block subdirectory
         std::string subdirectory_name;
         bool is_stash = is_multi_tiered();
@@ -205,7 +212,10 @@ class block_storage
         // Rename block
         std::string final_filename = subdirectory_name + "/" + block_hash;
         std::string stash_filename = stash_directory + "/" + stash_block_ids[block_index];
+
+        
         if (!utility::file_exists(final_filename.c_str())){
+          #ifndef USE_COMPRESSION
           // Rename
           int rename_status = rename(stash_filename.c_str(),final_filename.c_str());
           if (rename_status != 0){
@@ -234,14 +244,26 @@ class block_storage
             }
           }
           else{
+          #endif
             block_hash = store_block(temp_buffer, true, block_index, false, block_hash);
             if (block_hash.empty()){
               SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error committing stash block with index {} to base path", block_index);
               return "";
             }
             stash_block_ids.erase(block_index);
+
+            #ifdef USE_COMPRESSION
+              int remove_status = remove(block_stash_path.c_str());
+              if (remove_status != 0){
+                SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error removing stash file");
+                return "";
+              }
+            #endif
+
             return block_hash;
+          #ifndef USE_COMPRESSION
           }
+          #endif
         }
         else{
           int remove_status = remove(stash_filename.c_str());
@@ -260,9 +282,11 @@ class block_storage
             SPDLOG_ERROR("Error unmapping temporary buffer while unstashing");
             exit(-1);
           }
+          
+
           return block_hash;
         }
-      #endif
+      // #endif
       
     }
 
@@ -455,8 +479,6 @@ class block_storage
           std::pair<void*,size_t> compressed_buffer_and_size = utility::compress(buffer, block_granularity);
           void* const write_buffer = compressed_buffer_and_size.first;
           size_t compressed_block_size = compressed_buffer_and_size.second;
-          /* std::cout << "compressed_block_size: " << compressed_block_size << std::endl;
-          std::cout << "block_granularity: " << block_granularity << std::endl;*/
           int trunc_status = ftruncate(block_fd, compressed_block_size);
           if (trunc_status == -1){
             SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error sizing temporary file to compressed size");
@@ -468,7 +490,12 @@ class block_storage
             // store_block_mutex->unlock();
             return "";
           }
-          free(write_buffer);
+          // free(write_buffer);
+          int munmap_status = munmap(write_buffer, compressed_block_size);
+          if (munmap_status == -1){
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error unmapping compressed buffer - {}", strerror(errno));
+            exit(-1);
+          }
           #else
           size_t written = pwrite(block_fd ,buffer, block_granularity, 0);
           if (written == -1){

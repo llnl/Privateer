@@ -235,6 +235,13 @@ class block_storage
                 }
                 // store block must have two versions ?? STOPPED HERE
               }
+
+              int munmap_status = munmap(temp_buffer, block_granularity);
+              if (munmap_status == -1){
+                SPDLOG_ERROR("Error unmapping temporary buffer while unstashing");
+                exit(-1);
+              }
+
               return block_hash;
             }
             else{
@@ -260,6 +267,12 @@ class block_storage
               }
             #endif
 
+            int munmap_status = munmap(temp_buffer, block_granularity);
+            if (munmap_status == -1){
+              SPDLOG_ERROR("Error unmapping temporary buffer while unstashing");
+              exit(-1);
+            }
+            
             return block_hash;
           #ifndef USE_COMPRESSION
           }

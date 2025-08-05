@@ -1378,11 +1378,19 @@ class virtual_memory_manager {
             }
             stash_set.insert((uint64_t) to_evict);
           }
+
           int protect_status = mprotect(to_evict, m_block_size, PROT_NONE);
           if (protect_status == -1){
             SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error evicting address {}", to_evict);
             exit(-1);
           }
+
+          int madvise_status = madvise(to_evict, m_block_size, MADV_DONTNEED);
+          if (madvise_status == -1){
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error madvising address {}", to_evict);
+            exit(-1);
+          }
+
           present_blocks.erase((uint64_t) to_evict);
         }
       }

@@ -19,12 +19,16 @@ if(OPENMP_FOUND)
   set(CMAKE_EXE_LINKER_FLAGS
     "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
   add_executable(incremental_update_snapshot incremental_update_snapshot.cpp)
+  # add_dependencies(incremental_update_snapshot privateer-static)
+  # target_link_libraries(incremental_update_snapshot PUBLIC privateer-static)
   add_dependencies(incremental_update_snapshot privateer)
-  target_link_libraries(incremental_update_snapshot PRIVATE privateer)
+  target_link_libraries(incremental_update_snapshot PUBLIC privateer)
 
   add_executable(incremental_update_snapshot_skewed incremental_update_snapshot_skewed.cpp)
+  # add_dependencies(incremental_update_snapshot_skewed privateer-static)
+  # target_link_libraries(incremental_update_snapshot_skewed PUBLIC privateer-static)
   add_dependencies(incremental_update_snapshot_skewed privateer)
-  target_link_libraries(incremental_update_snapshot_skewed PRIVATE privateer)
+  target_link_libraries(incremental_update_snapshot_skewed PUBLIC privateer)
 
 else()
   message("Skipping incremental_update_snapshot, OpenMP required")

@@ -4,3 +4,4 @@
 # SPDX-License-Identifier: MIT
 
 add_subdirectory(incremental_update_snapshot)
+add_subdirectory(simple_write)

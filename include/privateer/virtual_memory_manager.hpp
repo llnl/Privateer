@@ -486,9 +486,9 @@ class virtual_memory_manager {
       SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: msync() - Msync Commit Stashed Blocks");
       std::vector<uint64_t> stash_vector(stash_set[sub_region_index].begin(), stash_set[sub_region_index].end());
 #endif
-#pragma omp parallel for
+#pragma omp parallel for shared(m_block_storage)
       for (auto stash_iterator = stash_vector.begin(); stash_iterator != stash_vector.end(); ++stash_iterator){
-        block_storage block_storage_local(*m_block_storage);
+        // block_storage block_storage_local(*m_block_storage);
         void* block_address = (void*) *stash_iterator;
         uint64_t block_index = ((uint64_t) block_address - (uint64_t) m_region_start_address) / m_block_size;
 #pragma omp critical
@@ -660,15 +660,34 @@ class virtual_memory_manager {
           }
   #ifdef USE_COMPRESSION
           // std::cout << "USING COMPRESSION DECOMPRESSING" << std::endl;
-          size_t compressed_block_size = utility::get_file_size(backing_block_path.c_str());
-          void* const read_buffer = malloc(compressed_block_size);
-          if (pread(backing_block_fd, read_buffer, compressed_block_size, 0) == -1){
-            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
-            exit(-1);
+          if (stash_backing_block_path.empty()){
+            // std::cout << "Reading backing block: " << backing_block_path << std::endl;
+          
+            size_t compressed_block_size = utility::get_file_size(backing_block_path.c_str());
+            if (compressed_block_size > m_block_size){
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error backing block {} size {} is larger than expected block size {}", backing_block_path, compressed_block_size, m_block_size);
+              exit(-1);
+            }
+            void* const read_buffer = mmap(nullptr, compressed_block_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0); // malloc(compressed_block_size);
+            if (pread(backing_block_fd, read_buffer, compressed_block_size, 0) == -1){
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
+              exit(-1);
+            }
+            size_t decompressed_size = utility::decompress(read_buffer, temp_buffer, compressed_block_size);
+            // free(read_buffer);
+            int munmap_status = munmap(read_buffer, compressed_block_size);
+            if (munmap_status == -1){
+                SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error munmapping read buffer decompression {}", strerror(errno));
+            }
           }
-          size_t decompressed_size = utility::decompress(read_buffer, temp_buffer, compressed_block_size);
-          free(read_buffer);
-  #else
+          else{
+            if (pread(backing_block_fd, temp_buffer, m_block_size, 0) == -1){
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
+              exit(-1);
+            }
+            // std::cout << "Reading stashed backing block: " << backing_block_path << std::endl;
+          }
+#else
 
           if (pread(backing_block_fd, temp_buffer, m_block_size, 0) == -1){
             SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
@@ -876,13 +895,17 @@ class virtual_memory_manager {
               // std::cout << "Backing block path: " << backing_block_path.c_str() << std::endl;
               // printf("Starting address: %ld blocks_ids address: %ld Thread ID: %ld", (uint64_t) m_region_start_address, (uint64_t) &blocks_ids[0], (uint64_t) syscall(SYS_gettid));
               size_t compressed_block_size = utility::get_file_size(backing_block_path.c_str());
-              void* const read_buffer = malloc(compressed_block_size);
+              void* const read_buffer = mmap(nullptr, compressed_block_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0); // malloc(compressed_block_size);
               if (pread(backing_block_fd, read_buffer, compressed_block_size, 0) == -1){
                 SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
                 exit(-1);
               }
               size_t decompressed_size = utility::decompress(read_buffer, (void*)(((uint64_t) temp_buffer) + (sub_region_index * m_block_size)), compressed_block_size);
-              free(read_buffer);
+              // free(read_buffer);
+              int munmap_status = munmap(read_buffer, compressed_block_size);
+              if (munmap_status == -1){
+                 SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error munmapping read buffer decompression {}", strerror(errno));
+              }
 #else
               // std::cout << "NOT USING COMPRESSION" << std::endl;
               if (pread(backing_block_fd, (void*)( ((uint64_t)temp_buffer) + (sub_region_index * m_block_size)), m_block_size, 0) == -1){
@@ -1348,11 +1371,19 @@ class virtual_memory_manager {
             }
             stash_set.insert((uint64_t) to_evict);
           }
+
           int protect_status = mprotect(to_evict, m_block_size, PROT_NONE);
           if (protect_status == -1){
             SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error evicting address {}", to_evict);
             exit(-1);
           }
+
+          int madvise_status = madvise(to_evict, m_block_size, MADV_DONTNEED);
+          if (madvise_status == -1){
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error madvising address {}", to_evict);
+            exit(-1);
+          }
+
           present_blocks.erase((uint64_t) to_evict);
         }
         SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: evict_if_needed() - Finishing");

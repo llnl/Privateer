@@ -158,6 +158,12 @@ set_target_properties(privateer PROPERTIES OUTPUT_NAME privateer)
 #         LIBRARY DESTINATION lib
 #         ARCHIVE DESTINATION lib
 #         RUNTIME DESTINATION bin )
+# set_target_properties(privateer-static PROPERTIES OUTPUT_NAME privateer)
+
+install(TARGETS  privateer # Removed "privateer-static" from here
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        RUNTIME DESTINATION bin )
 
 # install(FILES include/privateer/privateer.hpp DESTINATION include/privateer)
 # install(FILES include/privateer/c_api/privateer.h DESTINATION include/privateer/c_api)
@@ -166,9 +172,11 @@ install(DIRECTORY include/privateer DESTINATION include)
 
 option(ENABLE_UFFD "Enable userfaultfd" OFF)
 if (ENABLE_UFFD)
+  # target_compile_definitions(privateer-static PUBLIC USERFAULTFD)
   target_compile_definitions(privateer PUBLIC USERFAULTFD)
   message(STATUS "Configuring with UFFD")
 else()
+  # target_compile_definitions(privateer-static PUBLIC SIGACTION)
   target_compile_definitions(privateer PUBLIC SIGACTION)
   message(STATUS "Configuring with SIGACTION")
 endif()
@@ -258,4 +266,7 @@ if (PRIVATEER_BUILD_TEST)
   add_subdirectory(test)
 endif()
 
-add_subdirectory(examples)
+option(ENBALE_PRIVATEER_EXAMPLES "Enable examples" ON)
+if (ENBALE_PRIVATEER_EXAMPLES)
+  add_subdirectory(examples)
+endif()

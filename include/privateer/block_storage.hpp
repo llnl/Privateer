@@ -115,12 +115,14 @@ class block_storage
       bool file_exists = false;
       int block_fd = -1;
       if (stash_block_ids.find(block_index) != stash_block_ids.end()){
+        SPDLOG_LOGGER_INFO(spdlog::default_logger(), "file exists while stashing");
         block_UUID = stash_block_ids[block_index];
         file_exists = true;
       }
       else{
         boost::uuids::uuid uuid = boost::uuids::random_generator()();
         block_UUID = boost::lexical_cast<std::string>(uuid);
+        SPDLOG_LOGGER_INFO(spdlog::default_logger(), "block index - {} block UUID - {}", block_index, block_UUID.c_str());
         stash_block_ids.insert(std::pair<uint64_t,std::string>(block_index, block_UUID));
       }
       block_temp_path = stash_directory + "/" + block_UUID;
@@ -173,13 +175,14 @@ class block_storage
         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error - block with index {} has no backing stash file", block_index);
         exit(-1);
       }
-      std::string block_stash_path = stash_directory + "/" + stash_block_ids[block_index];
+      SPDLOG_LOGGER_INFO(spdlog::default_logger(), "block_index - {}", std::to_string(block_index));
+      std::string block_stash_path = stash_directory + "/" + stash_block_ids[block_index]; // stash_block_ids[block_index];
       int block_fd = ::open(block_stash_path.c_str(), O_RDONLY);
       if (block_fd == -1){
         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error opening stash file - {}", strerror(errno));
         exit(-1);
       }
-      void* temp_buffer = mmap(nullptr, block_granularity, PROT_READ, MAP_PRIVATE, block_fd, 0);
+      void* temp_buffer = mmap(nullptr, block_granularity, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1 , 0);
       if (temp_buffer == MAP_FAILED){
         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error mmapping temp buffer for stash block - {}", strerror(errno));
         exit(-1);
@@ -189,11 +192,38 @@ class block_storage
         smartcache::smartcache_write_response smc_write_resp = smc_client->write(temp_buffer, block_granularity);
         return std::string(smc_write_resp.get_block_hash());
       #else
-        std::string block_hash = utility::compute_hash((char*) temp_buffer, block_granularity);
+        if (pread(block_fd, temp_buffer, block_granularity, 0) == -1){
+          SPDLOG_LOGGER_ERROR(spdlog::default_logger(),"Error reading stash file {}", strerror(errno));
+          exit(-1);
+        }
+
         if (close(block_fd) == -1){
           SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error closing file - {}", strerror(errno));
           exit(-1);
         }
+
+        /* #ifdef USE_COMPRESSION
+          std::string block_hash = store_block(temp_buffer, true, block_index, false, block_hash);
+          if (block_hash.empty()){
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error committing stash block with index {} to base path", block_index);
+              return "";
+            }
+            SPDLOG_LOGGER_INFO(spdlog::default_logger(), "stash_block_ids.erase(block_index) - {}", std::to_string(block_index));
+            stash_block_ids.erase(block_index);
+            int munmap_status = munmap(temp_buffer, block_granularity);
+            if (munmap_status == -1){
+              SPDLOG_ERROR("Error unmapping temporary buffer while unstashing");
+              exit(-1);
+            }
+            int remove_status = remove(block_stash_path.c_str());
+            if (remove_status != 0){
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error removing stash file");
+              return "";
+            }
+            return block_hash;
+        #else */
+        std::string block_hash = utility::compute_hash((char*) temp_buffer, block_granularity);
+        
         // Get block subdirectory
         std::string subdirectory_name;
         bool is_stash = is_multi_tiered();
@@ -201,7 +231,10 @@ class block_storage
         // Rename block
         std::string final_filename = subdirectory_name + "/" + block_hash;
         std::string stash_filename = stash_directory + "/" + stash_block_ids[block_index];
+
+        
         if (!utility::file_exists(final_filename.c_str())){
+          #ifndef USE_COMPRESSION
           // Rename
           int rename_status = rename(stash_filename.c_str(),final_filename.c_str());
           if (rename_status != 0){
@@ -221,6 +254,13 @@ class block_storage
                 }
                 // store block must have two versions ?? STOPPED HERE
               }
+
+              int munmap_status = munmap(temp_buffer, block_granularity);
+              if (munmap_status == -1){
+                SPDLOG_ERROR("Error unmapping temporary buffer while unstashing");
+                exit(-1);
+              }
+
               return block_hash;
             }
             else{
@@ -230,14 +270,32 @@ class block_storage
             }
           }
           else{
+          #endif
             block_hash = store_block(temp_buffer, true, block_index, false, block_hash);
             if (block_hash.empty()){
               SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error committing stash block with index {} to base path", block_index);
               return "";
             }
             stash_block_ids.erase(block_index);
+
+            #ifdef USE_COMPRESSION
+              int remove_status = remove(block_stash_path.c_str());
+              if (remove_status != 0){
+                SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error removing stash file");
+                return "";
+              }
+            #endif
+
+            int munmap_status = munmap(temp_buffer, block_granularity);
+            if (munmap_status == -1){
+              SPDLOG_ERROR("Error unmapping temporary buffer while unstashing");
+              exit(-1);
+            }
+            
             return block_hash;
+          #ifndef USE_COMPRESSION
           }
+          #endif
         }
         else{
           int remove_status = remove(stash_filename.c_str());
@@ -245,15 +303,23 @@ class block_storage
             SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error removing stash file");
             return "";
           }
-          block_hash = store_block(temp_buffer, true, block_index, false, block_hash);
+          /* block_hash = store_block(temp_buffer, true, block_index, false, block_hash);
           if (block_hash.empty()){
             SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error committing stash block with index {} to base path", block_index);
             return "";
-          }
+          } */
           stash_block_ids.erase(block_index);
+          int munmap_status = munmap(temp_buffer, block_granularity);
+          if (munmap_status == -1){
+            SPDLOG_ERROR("Error unmapping temporary buffer while unstashing");
+            exit(-1);
+          }
+          
+
           return block_hash;
         }
       #endif
+      
     }
 
     std::string get_block_full_path(uint64_t block_index, std::string block_hash){
@@ -456,13 +522,11 @@ class block_storage
         if (!utility::file_exists(final_filename.c_str())){
           // Write
           if (write_to_file){
-            #ifdef USE_COMPRESSION
+          #ifdef USE_COMPRESSION
               // std::cout << "USING COMPRESSION" << std::endl;
               std::pair<void*,size_t> compressed_buffer_and_size = utility::compress(buffer, block_granularity);
               void* const write_buffer = compressed_buffer_and_size.first;
               size_t compressed_block_size = compressed_buffer_and_size.second;
-              /* std::cout << "compressed_block_size: " << compressed_block_size << std::endl;
-              std::cout << "block_granularity: " << block_granularity << std::endl;*/
               int trunc_status = ftruncate(block_fd, compressed_block_size);
               if (trunc_status == -1){
                 SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error sizing temporary file to compressed size");
@@ -474,61 +538,37 @@ class block_storage
                 // store_block_mutex->unlock();
                 return "";
               }
-              free(write_buffer);
-            #else
+              // free(write_buffer);
+              int munmap_status = munmap(write_buffer, compressed_block_size);
+              if (munmap_status == -1){
+                SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error unmapping compressed buffer - {}", strerror(errno));
+                exit(-1);
+              }
+          #else
               size_t written = pwrite(block_fd ,buffer, block_granularity, 0);
               if (written == -1){
                 SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error writing to file - {}", strerror(errno));
                 // store_block_mutex->unlock();
                 return "";
               }
-            #endif
           }
-          // Rename
-          // std::cout << "temporary_filename = " << temporary_filename << std::endl;
-          // std::cout << "final_filename = " << final_filename << std::endl;
-          int rename_status = rename(temporary_filename.c_str(),final_filename.c_str());
-          if (rename_status != 0){
-            if (utility::file_exists(final_filename.c_str())){
-              int remove_status = remove(temporary_filename.c_str());
-              if (remove_status != 0){
-                SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error removing temporary file");
-                return "";
-              }
+          else{
+            int remove_status = remove(temporary_filename.c_str());
+            if (remove_status != 0){
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error removing temporary file");
               if (::close(block_fd) == -1){
                 SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error closing file descriptor for block: {} - {}", block_index, strerror(errno));
                 exit(-1);
               }
-              return block_hash;
+              return "";
             }
-            else{
-              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error renaming file {}", strerror(errno));
-              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Temporary file name = {}", temporary_filename);
-              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Final file name = {}", final_filename);
-            }
-            if (::close(block_fd) == -1){
-              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error closing file descriptor for block: {} - {}", block_index, strerror(errno));
-              exit(-1);
-            }
-            return "";
           }
-        }
-        else{
-          int remove_status = remove(temporary_filename.c_str());
-          if (remove_status != 0){
-            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error removing temporary file");
-            if (::close(block_fd) == -1){
-              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error closing file descriptor for block: {} - {}", block_index, strerror(errno));
-              exit(-1);
-            }
-            return "";
+          if (::close(block_fd) == -1){
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error closing file descriptor for block: {} - {}", block_index, strerror(errno));
+            exit(-1);
           }
-        }
-        if (::close(block_fd) == -1){
-          SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error closing file descriptor for block: {} - {}", block_index, strerror(errno));
-          exit(-1);
-        }
-        return block_hash;
+          return block_hash;
+          #endif
       #endif
     }
 
@@ -578,7 +618,7 @@ class block_storage
         block_fd_temp_name[fd] = temporary_file_name_template;
       } */
       std::pair<int, std::string> fd_name (fd,std::string(temporary_file_name_template));
-      delete temporary_file_name_template;
+      delete [] temporary_file_name_template;
       return fd_name;
     }
 

@@ -544,6 +544,7 @@ class block_storage
                 SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error unmapping compressed buffer - {}", strerror(errno));
                 exit(-1);
               }
+            }
           #else
               size_t written = pwrite(block_fd ,buffer, block_granularity, 0);
               if (written == -1){
@@ -567,8 +568,10 @@ class block_storage
             SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "block_storage: Error closing file descriptor for block: {} - {}", block_index, strerror(errno));
             exit(-1);
           }
-          return block_hash;
           #endif
+          
+        }
+        return block_hash;
       #endif
     }
 

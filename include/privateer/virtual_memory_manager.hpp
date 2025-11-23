@@ -458,12 +458,12 @@ class virtual_memory_manager {
 #endif
 
         for (auto dirty_lru_iterator = dirty_lru_vector.begin(); dirty_lru_iterator != dirty_lru_vector.end(); ++dirty_lru_iterator){
-          block_storage block_storage_local(*m_block_storage);
+          // block_storage block_storage_local(*m_block_storage);
           void* block_address = (void*) *dirty_lru_iterator;
           // if (stash_set.find((uint64_t) block_address) == stash_set.end()){
           uint64_t block_index = ((uint64_t) block_address - (uint64_t) m_region_start_address) / m_block_size;
           bool write_block_fd = true;
-          std::string block_hash = block_storage_local.store_block(block_address, write_block_fd, block_index);
+          std::string block_hash = /*block_storage_local.*/ m_block_storage->store_block(block_address, write_block_fd, block_index);
           if (block_hash.empty()){
             SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error storing block with index {}", block_index);
             exit(-1);
@@ -576,25 +576,7 @@ class virtual_memory_manager {
       uint64_t block_index = (fault_address - start_address) / m_block_size;
       uint64_t block_address = start_address + block_index * m_block_size;
       SPDLOG_TRACE("virtual_memory_manager: handler() - Faulted on block: {}", block_index);
-      //SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: handler() - Faulted on block address: {}", block_address - start_address);
-      /*
-      for(auto i : present_blocks) {
-        std::cout << "indices: " << (i - start_address) / m_block_size << std::endl;
-      }
-      */
-      // std::cout << "thread: " << omp_get_thread_num() << " Faulted on block: " << (block_index % num_locks) << std::endl;
-      // const std::lock_guard<std::mutex> lock(blocks_locks[block_index]); // lock(blocks_locks[block_index % num_locks]);
-      // std::cout << "thread: " << omp_get_thread_num() << " grabbed lock number: " << (block_index % num_locks) << std::endl;
-      /*
-         if (fault_address < (uint64_t) start_address || fault_address >= (uint64_t) start_address + m_region_max_capacity){
-         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Faulting address out of range");
-         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Faulting address: {}", (uint64_t) fault_address);
-         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "Start: {}", (uint64_t) start_address);
-         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "End: {}", (uint64_t) start_address + m_region_max_capacity);
-         exit(-1);
-         }
-        //*/
-      // Handle block fault
+      
       ucontext_t *ctx = (ucontext_t *) ctx_void_ptr;
       bool is_write_fault = ctx->uc_mcontext.gregs[REG_ERR] & 0x2;
 
@@ -682,33 +664,21 @@ class virtual_memory_manager {
             exit(-1);
           }
 #ifdef USE_COMPRESSION
-          // std::cout << "USING COMPRESSION DECOMPRESSING" << std::endl;
-          if (stash_backing_block_path.empty()){
-            // std::cout << "Reading backing block: " << backing_block_path << std::endl;
-          
-            size_t compressed_block_size = utility::get_file_size(backing_block_path.c_str());
-            if (compressed_block_size > m_block_size){
-              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error backing block {} size {} is larger than expected block size {}", backing_block_path, compressed_block_size, m_block_size);
-              exit(-1);
-            }
-            void* const read_buffer = mmap(nullptr, compressed_block_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0); // malloc(compressed_block_size);
-            if (pread(backing_block_fd, read_buffer, compressed_block_size, 0) == -1){
-              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
-              exit(-1);
-            }
-            size_t decompressed_size = utility::decompress(read_buffer, temp_buffer, compressed_block_size);
-            // free(read_buffer);
-            int munmap_status = munmap(read_buffer, compressed_block_size);
-            if (munmap_status == -1){
-                SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error munmapping read buffer decompression {}", strerror(errno));
-            }
+          size_t compressed_block_size = utility::get_file_size(backing_block_path.c_str());
+          if (compressed_block_size > m_block_size){
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error backing block {} size {} is larger than expected block size {}", backing_block_path, compressed_block_size, m_block_size);
+            exit(-1);
           }
-          else{
-            if (pread(backing_block_fd, temp_buffer, m_block_size, 0) == -1){
-              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
-              exit(-1);
-            }
-            // std::cout << "Reading stashed backing block: " << backing_block_path << std::endl;
+          void* const read_buffer = mmap(nullptr, compressed_block_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0); // malloc(compressed_block_size);
+          if (pread(backing_block_fd, read_buffer, compressed_block_size, 0) == -1){
+            SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error reading backing block {} for address {} - {}", backing_block_path, block_address, strerror(errno));
+            exit(-1);
+          }
+          size_t decompressed_size = utility::decompress(read_buffer, temp_buffer, compressed_block_size);
+          // free(read_buffer);
+          int munmap_status = munmap(read_buffer, compressed_block_size);
+          if (munmap_status == -1){
+              SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error munmapping read buffer decompression {}", strerror(errno));
           }
 #else
 
@@ -1145,7 +1115,7 @@ class virtual_memory_manager {
 
     int close(){
       //  << "ByeBye VMM" << std::endl;
-      msync();
+      // msync();
       std::set<uint64_t>::iterator it;
 
 #ifdef SIGACTION

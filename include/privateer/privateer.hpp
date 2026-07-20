@@ -27,18 +27,19 @@
 #include <sstream>
 #include <signal.h>
 
-#include "utility/pagemap.hpp"
-#include "utility/sha256_hash.hpp"
-#include "utility/file_util.hpp"
-#include "utility/system.hpp"
-#include "virtual_memory_manager.hpp"
+#include <privateer/utility/pagemap.hpp>
+#include <privateer/utility/sha256_hash.hpp>
+#include <privateer/utility/file_util.hpp>
+#include <privateer/utility/system.hpp>
+#include <privateer/virtual_memory_manager_base.hpp>
+#include <privateer/virtual_memory_manager_factory.hpp>
 
 #ifdef SIGACTION
-#include "utility/sigsegv_handler_dispatcher.hpp"
+#include <privateer/utility/sigsegv_handler_dispatcher.hpp>
 #endif
 
 #ifdef USERFAULTFD
-#include "utility/UFFD.hpp"
+#include <privateer/utility/UFFD.hpp>
 #endif
 
 namespace fs = std::filesystem;
@@ -183,7 +184,7 @@ public:
     void* create(void* addr, const char* version_metadata_path, size_t region_size, bool allow_overwrite){
       SPDLOG_LOGGER_INFO(spdlog::default_logger(), "Privateer: create()");
     std::string version_metadata_full_path = base_dir_path + "/" + version_metadata_path;
-    vmm = new virtual_memory_manager(addr, region_size, m_block_size, version_metadata_full_path, blocks_dir_path, stash_dir_path, allow_overwrite);
+    vmm = virtual_memory_manager_factory::create(addr, region_size, m_block_size, version_metadata_full_path, blocks_dir_path, stash_dir_path, allow_overwrite);
 
     #ifdef SIGACTION
     utility::sigsegv_handler_dispatcher::add_virtual_memory_manager((uint64_t) vmm->get_region_start_address(), region_size, vmm);
@@ -356,7 +357,7 @@ private:
       exit(-1);
     }
     version_metadata_dir_path = version_metadata_full_path;
-    vmm = new virtual_memory_manager(addr, version_metadata_dir_path, stash_dir_path, read_only);
+    vmm = virtual_memory_manager_factory::open(addr, version_metadata_dir_path, stash_dir_path, read_only);
 
     #ifdef SIGACTION
     utility::sigsegv_handler_dispatcher::add_virtual_memory_manager((uint64_t) vmm->get_region_start_address(), vmm->current_region_capacity(), vmm);
@@ -413,7 +414,7 @@ private:
   size_t m_block_size = 0L;
   const size_t FILE_GRANULARITY_DEFAULT_BYTES = 2097152;
   size_t pagesize = sysconf(_SC_PAGE_SIZE);
-  virtual_memory_manager* vmm;
+  virtual_memory_manager_base* vmm;
 };
 
 /**
@@ -432,7 +433,7 @@ inline size_t Privateer::region_size(){
  * @return version capacity
  */
 inline size_t Privateer::version_capacity(std::string version_path){
-  return virtual_memory_manager::version_capacity(version_path);
+  return virtual_memory_manager_base::version_capacity(version_path);
 }
 
 /**
@@ -442,5 +443,5 @@ inline size_t Privateer::version_capacity(std::string version_path){
  * @return version block size
  */
 inline size_t Privateer::version_block_size(std::string version_path){
-  return virtual_memory_manager::version_block_size(version_path);
+  return virtual_memory_manager_base::version_block_size(version_path);
 }

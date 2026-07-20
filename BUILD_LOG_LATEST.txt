@@ -1,0 +1,10 @@
+[ 30%] Built target spdlog
+[ 69%] Built target privateer
+[ 73%] Linking CXX executable PrivateerTest
+/usr/tce/packages/gcc/gcc-10.3.1/bin/ld: cannot find -lgtest
+/usr/tce/packages/gcc/gcc-10.3.1/bin/ld: cannot find -lgtest_main
+/usr/tce/packages/gcc/gcc-10.3.1/bin/ld: cannot find -lgtest
+collect2: error: ld returned 1 exit status
+gmake[2]: *** [test/CMakeFiles/PrivateerTest.dir/build.make:105: test/PrivateerTest] Error 1
+gmake[1]: *** [CMakeFiles/Makefile2:980: test/CMakeFiles/PrivateerTest.dir/all] Error 2
+gmake: *** [Makefile:146: all] Error 2

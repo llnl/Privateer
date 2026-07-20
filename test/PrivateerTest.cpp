@@ -612,6 +612,8 @@ TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot_Skewed_Threaded) {
   for (int i = 1; i < num_iterations; i++) {
     // update dense region
     std::vector<size_t> random_indices = get_random_offsets(0, dense_region_length, num_updates_dense_region);
+    std::sort(random_indices.begin(), random_indices.end());
+    random_indices.erase(std::unique(random_indices.begin(), random_indices.end()), random_indices.end());
     std::vector<size_t>::iterator offset_iterator;
     #pragma omp parallel for
     for (offset_iterator = random_indices.begin(); offset_iterator < random_indices.end(); ++offset_iterator){
@@ -620,9 +622,13 @@ TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot_Skewed_Threaded) {
 
     // update sparse region
     std::vector<size_t> random_indices_sparse_region = get_random_offsets(sparse_region_start, num_ints, num_updates_sparse_region);
+    std::sort(random_indices_sparse_region.begin(), random_indices_sparse_region.end());
+    random_indices_sparse_region.erase(
+      std::unique(random_indices_sparse_region.begin(), random_indices_sparse_region.end()),
+      random_indices_sparse_region.end());
     std::vector<size_t>::iterator offset_iterator_sparse_region;
     #pragma omp parallel for
-    for (offset_iterator_sparse_region = random_indices_sparse_region.begin(); offset_iterator_sparse_region <= random_indices_sparse_region.end(); offset_iterator_sparse_region++){
+    for (offset_iterator_sparse_region = random_indices_sparse_region.begin(); offset_iterator_sparse_region < random_indices_sparse_region.end(); ++offset_iterator_sparse_region){
       data[*offset_iterator_sparse_region] += 1;
     }
 

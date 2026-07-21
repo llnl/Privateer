@@ -2,7 +2,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <functional>
 #include <mpi.h>
+#include <thread>
+#include <vector>
 #include <gtest/gtest.h>
 
 #include <spdlog/spdlog.h>
@@ -26,6 +29,46 @@ std::vector<size_t> get_random_offsets(size_t region_start, size_t region_end, s
   std::vector<size_t> random_values;
   std::generate_n(std::back_inserter(random_values), num_updates, utility::RandomNumberBetween(region_start,region_end - 1));
   return random_values;
+}
+
+template <typename Func>
+void run_parallel_for(size_t count, size_t num_threads, Func&& func) {
+  if (count == 0) {
+    return;
+  }
+
+  size_t thread_count = std::max<size_t>(1, num_threads);
+  thread_count = std::min(thread_count, count);
+
+  std::vector<std::thread> workers;
+  workers.reserve(thread_count);
+
+  size_t chunk_size = (count + thread_count - 1) / thread_count;
+  for (size_t thread_index = 0; thread_index < thread_count; ++thread_index) {
+    size_t begin = thread_index * chunk_size;
+    if (begin >= count) {
+      break;
+    }
+    size_t end = std::min(count, begin + chunk_size);
+    workers.emplace_back([begin, end, &func]() {
+      for (size_t index = begin; index < end; ++index) {
+        func(index);
+      }
+    });
+  }
+
+  for (auto& worker : workers) {
+    worker.join();
+  }
+}
+
+template <typename Iterator, typename Func>
+void run_parallel_for_each(Iterator begin, Iterator end, size_t num_threads, Func&& func) {
+  using value_type = typename std::iterator_traits<Iterator>::value_type;
+  std::vector<value_type> items(begin, end);
+  run_parallel_for(items.size(), num_threads, [&](size_t index) {
+    func(items[index]);
+  });
 }
 
 class my_formatter_flag : public spdlog::custom_flag_formatter {
@@ -272,11 +315,10 @@ TEST_P(PrivateerTest, MultipleWrite) {
 }
 
 TEST_P(PrivateerTest, MultipleWrite_Threaded) {
-  omp_set_num_threads(std::get<4>(GetParam()));
-#pragma omp for
-  for (size_t i = 0; i < this->num_ints; i++) {
+  size_t num_threads = std::get<4>(GetParam());
+  run_parallel_for(this->num_ints, num_threads, [&](size_t i) {
     this->data[i] = i;
-  }
+  });
 
   priv->msync();
 
@@ -285,27 +327,23 @@ TEST_P(PrivateerTest, MultipleWrite_Threaded) {
     delete priv;
     priv = new Privateer(Privateer::OPEN, this->datastore);
     this->data = (size_t*) priv->open(nullptr, "v0");
-#pragma omp for
-    for (size_t i = 0; i < this->num_ints; i++) {
+    run_parallel_for(this->num_ints, num_threads, [&](size_t i) {
       EXPECT_EQ(this->data[i], i);
-    }
-#pragma omp for
-    for (size_t i = 0; i < this->num_ints; i++) {
+    });
+    run_parallel_for(this->num_ints, num_threads, [&](size_t i) {
       this->data[i] = (this->num_ints - 1) - i;
-    }
+    });
     priv->msync();
     delete priv;
 
     priv = new Privateer(Privateer::OPEN, this->datastore);
     this->data = (size_t*) priv->open  (nullptr, "v0");
-#pragma omp for
-    for (size_t i = 0; i < this->num_ints; i++) {
+    run_parallel_for(this->num_ints, num_threads, [&](size_t i) {
       EXPECT_EQ(this->data[i], (this->num_ints - 1) - i);
-    }
-#pragma omp for
-    for (size_t i = 0; i < this->num_ints; i++) {
+    });
+    run_parallel_for(this->num_ints, num_threads, [&](size_t i) {
       this->data[i] = i;
-    }
+    });
     priv->msync();
   }
 }
@@ -359,12 +397,10 @@ TEST_P(PrivateerTest, MultipleWriteSparse_Threaded) {
   size_t num_threads = std::get<4>(GetParam());
   //size_t int_iter = std::get<2>(GetParam());
   size_t int_iter = this->num_ints;
-  omp_set_num_threads(num_threads);
-#pragma omp parallel for
-  for (size_t i = 0; i < int_iter; i++) {
+  run_parallel_for(int_iter, num_threads, [&](size_t i) {
     this->data[i] = i / num_threads + (i % num_threads) * (this->num_ints / num_threads);
     //spdlog::info("Wrote to block address: {}", this->data[i] * sizeof(size_t));
-  }
+  });
   priv->msync();
 
   int num_iterations = std::get<2>(GetParam());
@@ -379,11 +415,10 @@ TEST_P(PrivateerTest, MultipleWriteSparse_Threaded) {
       EXPECT_EQ(this->data[i], i / num_threads + (i % num_threads) * (this->num_ints / num_threads));
     }
     //*/
-#pragma omp parallel for
-    for (size_t i = 0; i < int_iter; i++) {
+    run_parallel_for(int_iter, num_threads, [&](size_t i) {
       this->data[i] = ((this->num_ints - 1) - i) / num_threads + (((this->num_ints - 1) - i) % num_threads) * (this->num_ints / num_threads);
       //spdlog::info("Wrote to block address: {}", this->data[i] * sizeof(size_t));
-    }
+    });
     priv->msync();
     delete priv;
 
@@ -395,11 +430,10 @@ TEST_P(PrivateerTest, MultipleWriteSparse_Threaded) {
       EXPECT_EQ(this->data[i], ((this->num_ints - 1) - i) / num_threads + (((this->num_ints - 1) - i) % num_threads) * (this->num_ints / num_threads));
     }
     //*/
-#pragma omp parallel for
-    for (size_t i = 0; i < int_iter; i++) {
+    run_parallel_for(int_iter, num_threads, [&](size_t i) {
       this->data[i] = i / num_threads + (i % num_threads) * (this->num_ints / num_threads);;
       //spdlog::info("Wrote to block address: {}", this->data[i] * sizeof(size_t));
-    }
+    });
     priv->msync();
   }
 }
@@ -423,17 +457,17 @@ TEST_P(PrivateerTest, IncrementalRandomSparseWrite) {
 TEST_P(PrivateerTest, IncrementalRandomSparseWrite_Threaded) {
   int num_iterations = std::get<2>(GetParam());
   int num_updates = std::get<3>(GetParam());
-  omp_set_num_threads(std::get<4>(GetParam()));
+  size_t num_threads = std::get<4>(GetParam());
   for (int i = 0 ; i < num_iterations ; i++) {
     std::vector<size_t> offsets = get_random_offsets(this->num_ints, num_updates);
-    std::vector<size_t>::iterator offset_iterator;
-#pragma omp for
-    for (offset_iterator = offsets.begin(); offset_iterator < offsets.end(); ++offset_iterator){
-      std::cout << "offset iterator: " << *offset_iterator << std::endl;
-      EXPECT_GE(*offset_iterator, 0);
-      EXPECT_LT(*offset_iterator, this->num_ints);
-      data[*offset_iterator] += 1;
-    }
+    std::sort(offsets.begin(), offsets.end());
+    offsets.erase(std::unique(offsets.begin(), offsets.end()), offsets.end());
+    run_parallel_for_each(offsets.begin(), offsets.end(), num_threads, [&](size_t offset) {
+      std::cout << "offset iterator: " << offset << std::endl;
+      EXPECT_GE(offset, 0);
+      EXPECT_LT(offset, this->num_ints);
+      data[offset] += 1;
+    });
     priv->msync();
   }
 }
@@ -551,7 +585,7 @@ TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot) {
 TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot_Threaded) {
   int num_iterations = std::get<2>(GetParam());
   size_t update_ratio = std::get<3>(GetParam());
-  omp_set_num_threads(std::get<4>(GetParam()));
+  size_t num_threads = std::get<4>(GetParam());
 
   float initial_fill_ratio = 0.01;
   size_t initial_fill_size = this->num_ints * initial_fill_ratio;
@@ -559,14 +593,16 @@ TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot_Threaded) {
   size_t num_updates = initial_fill_size*initial_sparsity;
 
   std::vector<size_t> random_indices_first_half = get_random_offsets(0, initial_fill_size, num_updates);
-  std::vector<size_t>::iterator offset_iterator;
-  #pragma omp parallel for
-  for (offset_iterator = random_indices_first_half.begin(); offset_iterator <= random_indices_first_half.end(); ++offset_iterator){
-    EXPECT_GE(*offset_iterator, 0);
-    EXPECT_LT(*offset_iterator, this->num_ints);
-    spdlog::info("Faulted on block address: {}", *offset_iterator);
-    this->data[*offset_iterator] += 1;
-  }
+  std::sort(random_indices_first_half.begin(), random_indices_first_half.end());
+  random_indices_first_half.erase(
+    std::unique(random_indices_first_half.begin(), random_indices_first_half.end()),
+    random_indices_first_half.end());
+  run_parallel_for_each(random_indices_first_half.begin(), random_indices_first_half.end(), num_threads, [&](size_t offset) {
+    EXPECT_GE(offset, 0);
+    EXPECT_LT(offset, this->num_ints);
+    spdlog::info("Faulted on block address: {}", offset);
+    this->data[offset] += 1;
+  });
   this->priv->msync();
 
   size_t update_size = num_ints*(update_ratio * 1.0 / 100);
@@ -576,13 +612,14 @@ TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot_Threaded) {
     num_updates = update_size*initial_sparsity;
     std::cout << "iteration: " << i << std::endl;
     std::vector<size_t> random_indices = get_random_offsets(update_start, update_start + update_size, num_updates);
-    #pragma omp parallel for
-    for (offset_iterator = random_indices.begin(); offset_iterator < random_indices.end(); ++offset_iterator){
-      EXPECT_GE(*offset_iterator, 0);
-      EXPECT_LT(*offset_iterator, this->num_ints);
-      spdlog::info("Faulted on block address: {}", *offset_iterator);
-      this->data[*offset_iterator] += 1;
-    }
+    std::sort(random_indices.begin(), random_indices.end());
+    random_indices.erase(std::unique(random_indices.begin(), random_indices.end()), random_indices.end());
+    run_parallel_for_each(random_indices.begin(), random_indices.end(), num_threads, [&](size_t offset) {
+      EXPECT_GE(offset, 0);
+      EXPECT_LT(offset, this->num_ints);
+      spdlog::info("Faulted on block address: {}", offset);
+      this->data[offset] += 1;
+    });
 
     EXPECT_TRUE(priv->snapshot(("v" + std::to_string(i)).c_str()));
   }
@@ -591,7 +628,7 @@ TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot_Threaded) {
 TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot_Skewed_Threaded) {
   int num_iterations = std::get<2>(GetParam());
   size_t update_ratio = std::get<3>(GetParam());
-  omp_set_num_threads(std::get<4>(GetParam()));
+  size_t num_threads = std::get<4>(GetParam());
   int dense_region_size_ratio = std::get<5>(GetParam());
   int dense_region_update_ratio = std::get<6>(GetParam());
 
@@ -601,10 +638,9 @@ TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot_Skewed_Threaded) {
   size_t sparse_region_start = dense_region_length;
   size_t num_updates_sparse_region = total_updates_per_iteration - num_updates_dense_region;
 
-  #pragma omp parallel for
-  for (size_t i = 0; i < num_ints / 2; ++i){
+  run_parallel_for(num_ints / 2, num_threads, [&](size_t i) {
     data[i] = 0;
-  }
+  });
   this->priv->msync();
 
   size_t update_size = num_ints*(update_ratio * 1.0 / 100);
@@ -614,11 +650,9 @@ TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot_Skewed_Threaded) {
     std::vector<size_t> random_indices = get_random_offsets(0, dense_region_length, num_updates_dense_region);
     std::sort(random_indices.begin(), random_indices.end());
     random_indices.erase(std::unique(random_indices.begin(), random_indices.end()), random_indices.end());
-    std::vector<size_t>::iterator offset_iterator;
-    #pragma omp parallel for
-    for (offset_iterator = random_indices.begin(); offset_iterator < random_indices.end(); ++offset_iterator){
-      data[*offset_iterator] += 1;
-    }
+    run_parallel_for_each(random_indices.begin(), random_indices.end(), num_threads, [&](size_t offset) {
+      data[offset] += 1;
+    });
 
     // update sparse region
     std::vector<size_t> random_indices_sparse_region = get_random_offsets(sparse_region_start, num_ints, num_updates_sparse_region);
@@ -626,11 +660,9 @@ TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot_Skewed_Threaded) {
     random_indices_sparse_region.erase(
       std::unique(random_indices_sparse_region.begin(), random_indices_sparse_region.end()),
       random_indices_sparse_region.end());
-    std::vector<size_t>::iterator offset_iterator_sparse_region;
-    #pragma omp parallel for
-    for (offset_iterator_sparse_region = random_indices_sparse_region.begin(); offset_iterator_sparse_region < random_indices_sparse_region.end(); ++offset_iterator_sparse_region){
-      data[*offset_iterator_sparse_region] += 1;
-    }
+    run_parallel_for_each(random_indices_sparse_region.begin(), random_indices_sparse_region.end(), num_threads, [&](size_t offset) {
+      data[offset] += 1;
+    });
 
     // snapshot
     EXPECT_TRUE(priv->snapshot(("v" + std::to_string(i)).c_str()));

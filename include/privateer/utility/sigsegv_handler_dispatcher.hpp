@@ -1,12 +1,12 @@
 #include <signal.h>
 #include <mutex>
 
-#include "../virtual_memory_manager.hpp"
+#include "../virtual_memory_manager_base.hpp"
 
 namespace utility{
   class sigsegv_handler_dispatcher{
     public:
-      inline static void add_virtual_memory_manager(uint64_t addr, uint64_t length, virtual_memory_manager* vmm){
+      inline static void add_virtual_memory_manager(uint64_t addr, uint64_t length, virtual_memory_manager_base* vmm){
         std::lock_guard<std::mutex> region_manager_add_lock(region_manager_add_mutex);
         regions.insert({addr, length});
         region_managers.insert({addr, vmm});
@@ -22,7 +22,7 @@ namespace utility{
         std::lock_guard<std::mutex> region_manager_handler_lock(region_manager_handler_mutex);
         // Get address information
         uint64_t fault_address = (uint64_t) si->si_addr;
-        virtual_memory_manager *vmm;
+        virtual_memory_manager_base *vmm;
 
         // Map to VMM
         for (std::map<uint64_t,uint64_t>::iterator it = regions.begin(); it != regions.end(); ++it){
@@ -43,9 +43,9 @@ namespace utility{
         
       }
     private:
-      // inline static virtual_memory_manager* vmm;
+      // inline static virtual_memory_manager_base* vmm;
       inline static std::map<uint64_t,uint64_t> regions;
-      inline static std::map<uint64_t,virtual_memory_manager*> region_managers;
+      inline static std::map<uint64_t,virtual_memory_manager_base*> region_managers;
       inline static std::mutex region_manager_add_mutex;
       inline static std::mutex region_manager_remove_mutex;
       inline static std::mutex region_manager_handler_mutex;

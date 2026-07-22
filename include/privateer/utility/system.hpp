@@ -6,8 +6,10 @@
 #pragma once
 
 #include <iostream>
+#include <fstream>
 #include <cstdlib>
 #include <cmath>
+#include <limits>
 
 namespace utility{
   inline size_t get_environment_variable(std::string variable_name){

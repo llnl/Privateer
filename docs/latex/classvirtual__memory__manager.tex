@@ -1,0 +1,58 @@
+\hypertarget{classvirtual__memory__manager}{}\doxysection{virtual\+\_\+memory\+\_\+manager Class Reference}
+\label{classvirtual__memory__manager}\index{virtual\_memory\_manager@{virtual\_memory\_manager}}
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classvirtual__memory__manager_a62b50dc5e785f5e74ab866bb62c832c9}\label{classvirtual__memory__manager_a62b50dc5e785f5e74ab866bb62c832c9}} 
+{\bfseries virtual\+\_\+memory\+\_\+manager} (void $\ast$start\+\_\+address, size\+\_\+t region\+\_\+max\+\_\+capacity, size\+\_\+t block\+\_\+size, std\+::string version\+\_\+metadata\+\_\+path, std\+::string blocks\+\_\+path, std\+::string stash\+\_\+path, bool allow\+\_\+overwrite)
+\item 
+\mbox{\Hypertarget{classvirtual__memory__manager_aded221db3daaa40dbaa7eda36485b521}\label{classvirtual__memory__manager_aded221db3daaa40dbaa7eda36485b521}} 
+{\bfseries virtual\+\_\+memory\+\_\+manager} (void $\ast$addr, std\+::string version\+\_\+metadata\+\_\+path, std\+::string stash\+\_\+path, bool read\+\_\+only)
+\item 
+\mbox{\Hypertarget{classvirtual__memory__manager_a493264f8ebd760f4a96f31d7a8abd59d}\label{classvirtual__memory__manager_a493264f8ebd760f4a96f31d7a8abd59d}} 
+{\bfseries for} (auto dirty\+\_\+lru\+\_\+iterator=dirty\+\_\+lru\+\_\+vector.\+begin();dirty\+\_\+lru\+\_\+iterator !=dirty\+\_\+lru\+\_\+vector.\+end();++dirty\+\_\+lru\+\_\+iterator)
+\item 
+\mbox{\Hypertarget{classvirtual__memory__manager_acc8c3cc4957e0a7c7257981ac3ba68c4}\label{classvirtual__memory__manager_acc8c3cc4957e0a7c7257981ac3ba68c4}} 
+void $\ast$ {\bfseries get\+\_\+region\+\_\+start\+\_\+address} ()
+\item 
+\mbox{\Hypertarget{classvirtual__memory__manager_a13e82cbf2dae4d8238e8f6a4b55254a6}\label{classvirtual__memory__manager_a13e82cbf2dae4d8238e8f6a4b55254a6}} 
+size\+\_\+t {\bfseries current\+\_\+region\+\_\+capacity} ()
+\item 
+\mbox{\Hypertarget{classvirtual__memory__manager_a1b39ad337f59fa874e7eabe137b14d20}\label{classvirtual__memory__manager_a1b39ad337f59fa874e7eabe137b14d20}} 
+bool {\bfseries snapshot} (const char $\ast$version\+\_\+metadata\+\_\+path)
+\item 
+\mbox{\Hypertarget{classvirtual__memory__manager_a1e3b3965695872e42ec4da92bd5243c6}\label{classvirtual__memory__manager_a1e3b3965695872e42ec4da92bd5243c6}} 
+size\+\_\+t {\bfseries get\+\_\+block\+\_\+size} ()
+\item 
+\mbox{\Hypertarget{classvirtual__memory__manager_ae62440f725090e67d9252d53880e1c10}\label{classvirtual__memory__manager_ae62440f725090e67d9252d53880e1c10}} 
+int {\bfseries close} ()
+\end{DoxyCompactItemize}
+\doxysubsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classvirtual__memory__manager_ac97770e4bc61238ee986afff9fec5771}\label{classvirtual__memory__manager_ac97770e4bc61238ee986afff9fec5771}} 
+static size\+\_\+t {\bfseries version\+\_\+capacity} (std\+::string version\+\_\+path)
+\item 
+\mbox{\Hypertarget{classvirtual__memory__manager_a48d7bf6dbf197b09b70d0fc96a4d438e}\label{classvirtual__memory__manager_a48d7bf6dbf197b09b70d0fc96a4d438e}} 
+static size\+\_\+t {\bfseries version\+\_\+block\+\_\+size} (std\+::string version\+\_\+path)
+\end{DoxyCompactItemize}
+\doxysubsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classvirtual__memory__manager_a1efce3a6149264e4a11dd2493c537176}\label{classvirtual__memory__manager_a1efce3a6149264e4a11dd2493c537176}} 
+delete\mbox{[}$\,$\mbox{]} {\bfseries blocks\+\_\+ids}
+\item 
+\mbox{\Hypertarget{classvirtual__memory__manager_a47a8a1f7d53af16899859627af5f4d74}\label{classvirtual__memory__manager_a47a8a1f7d53af16899859627af5f4d74}} 
+delete {\bfseries m\+\_\+block\+\_\+storage}
+\item 
+\mbox{\Hypertarget{classvirtual__memory__manager_ad9ee99a0e4e00a5a0068214858c3b35f}\label{classvirtual__memory__manager_ad9ee99a0e4e00a5a0068214858c3b35f}} 
+{\bfseries m\+\_\+region\+\_\+start\+\_\+address} = nullptr
+\item 
+\mbox{\Hypertarget{classvirtual__memory__manager_af7bb0ca4e0d3a1419c715ff1c2a4a0b3}\label{classvirtual__memory__manager_af7bb0ca4e0d3a1419c715ff1c2a4a0b3}} 
+{\bfseries return}
+\end{DoxyCompactItemize}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+/home/caleb/\+Documents/2024\+Summer/\+Privateer/include/privateer/virtual\+\_\+memory\+\_\+manager.\+hpp\end{DoxyCompactItemize}

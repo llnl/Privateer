@@ -2,10 +2,48 @@
 #include <privateer/block_storage_factory.hpp>
 #include <privateer/utility/system.hpp>
 #include <fstream>
+#include <thread>
+#include <vector>
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+
+namespace {
+template <typename Func>
+void run_parallel_for_count(size_t count, Func&& func) {
+  if (count == 0) {
+    return;
+  }
+
+  size_t thread_count = std::thread::hardware_concurrency();
+  if (thread_count == 0) {
+    thread_count = 1;
+  }
+  thread_count = std::min(thread_count, count);
+
+  std::vector<std::thread> workers;
+  workers.reserve(thread_count);
+  size_t chunk_size = (count + thread_count - 1) / thread_count;
+
+  for (size_t thread_index = 0; thread_index < thread_count; ++thread_index) {
+    size_t begin = thread_index * chunk_size;
+    if (begin >= count) {
+      break;
+    }
+    size_t end = std::min(count, begin + chunk_size);
+    workers.emplace_back([begin, end, &func]() {
+      for (size_t index = begin; index < end; ++index) {
+        func(index);
+      }
+    });
+  }
+
+  for (auto& worker : workers) {
+    worker.join();
+  }
+}
+}
 
 // Constructor for creating new region
 sigaction_virtual_memory_manager::sigaction_virtual_memory_manager(
@@ -214,10 +252,8 @@ void sigaction_virtual_memory_manager::msync() {
     // TODO: Implement full msync logic from original
     // This is a placeholder
     std::vector<uint64_t> dirty_lru_vector(dirty_lru.begin(), dirty_lru.end());
-    #pragma omp parallel for shared(m_block_storage)
-    for (auto dirty_lru_iterator = dirty_lru_vector.begin(); dirty_lru_iterator != dirty_lru_vector.end(); ++dirty_lru_iterator){
-        
-        void* block_address = (void*) *dirty_lru_iterator;
+    run_parallel_for_count(dirty_lru_vector.size(), [&](size_t index) {
+      void* block_address = (void*) dirty_lru_vector[index];
         // if (stash_set.find((uint64_t) block_address) == stash_set.end()){
         uint64_t block_index = ((uint64_t) block_address - (uint64_t) m_region_start_address) / m_block_size;
         bool write_block_fd = true;
@@ -233,24 +269,23 @@ void sigaction_virtual_memory_manager::msync() {
         if (mprotect_stat == -1){
         SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: mprotect error for block with address: {} - {}", (uint64_t) block_address, strerror(errno));
         }
-    #pragma omp critical
         {
-        clean_lru.push_front((uint64_t)block_address);
+          std::lock_guard<std::mutex> lock(sig_handler_mutex);
+          clean_lru.push_front((uint64_t)block_address);
         }
         // }
-    }
+      });
     dirty_lru.clear();
 
     SPDLOG_LOGGER_INFO(spdlog::default_logger(), "virtual_memory_manager: msync() - Msync Commit Stashed Blocks");
     std::vector<uint64_t> stash_vector(stash_set.begin(), stash_set.end());
 
-    #pragma omp parallel for shared(m_block_storage)
-    for (auto stash_iterator = stash_vector.begin(); stash_iterator != stash_vector.end(); ++stash_iterator){
+      run_parallel_for_count(stash_vector.size(), [&](size_t index) {
         // block_storage block_storage_local(*m_block_storage);
-        void* block_address = (void*) *stash_iterator;
+        void* block_address = (void*) stash_vector[index];
         uint64_t block_index = ((uint64_t) block_address - (uint64_t) m_region_start_address) / m_block_size;
-        #pragma omp critical
         {
+          std::lock_guard<std::mutex> lock(sig_handler_mutex);
             std::string block_hash = /* block_storage_local.*/ m_block_storage->commit_stash_block(block_index);
             if (block_hash.empty()){
             SPDLOG_LOGGER_ERROR(spdlog::default_logger(), "virtual_memory_manager: Error committing stash block with address: {} - {}", (uint64_t) block_address, strerror(errno));
@@ -258,7 +293,7 @@ void sigaction_virtual_memory_manager::msync() {
             }
             blocks_ids[block_index] = block_hash;
         }
-    }
+      });
     stash_set.clear();
     update_metadata();
     

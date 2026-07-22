@@ -315,6 +315,9 @@ TEST_P(PrivateerTest, MultipleWrite) {
 }
 
 TEST_P(PrivateerTest, MultipleWrite_Threaded) {
+#ifdef SIGACTION
+  GTEST_SKIP() << "SIGACTION mode does not support multi-threaded access.";
+#endif
   size_t num_threads = std::get<4>(GetParam());
   run_parallel_for(this->num_ints, num_threads, [&](size_t i) {
     this->data[i] = i;
@@ -394,6 +397,9 @@ TEST_P(PrivateerTest, MultipleWriteSparse) {
 }
 
 TEST_P(PrivateerTest, MultipleWriteSparse_Threaded) {
+#ifdef SIGACTION
+  GTEST_SKIP() << "SIGACTION mode does not support multi-threaded access.";
+#endif
   size_t num_threads = std::get<4>(GetParam());
   //size_t int_iter = std::get<2>(GetParam());
   size_t int_iter = this->num_ints;
@@ -409,12 +415,9 @@ TEST_P(PrivateerTest, MultipleWriteSparse_Threaded) {
     delete priv;
     priv = new Privateer(Privateer::OPEN, this->datastore);
     this->data = (size_t*) priv->open(nullptr, "v0");
-/*
-#pragma omp parallel for
-    for (size_t i = 0; i < int_iter; i++) {
+    run_parallel_for(int_iter, num_threads, [&](size_t i) {
       EXPECT_EQ(this->data[i], i / num_threads + (i % num_threads) * (this->num_ints / num_threads));
-    }
-    //*/
+    });
     run_parallel_for(int_iter, num_threads, [&](size_t i) {
       this->data[i] = ((this->num_ints - 1) - i) / num_threads + (((this->num_ints - 1) - i) % num_threads) * (this->num_ints / num_threads);
       //spdlog::info("Wrote to block address: {}", this->data[i] * sizeof(size_t));
@@ -424,12 +427,9 @@ TEST_P(PrivateerTest, MultipleWriteSparse_Threaded) {
 
     priv = new Privateer(Privateer::OPEN, this->datastore);
     this->data = (size_t*) priv->open  (nullptr, "v0");
-/*
-#pragma omp parallel for
-    for (size_t i = 0; i < int_iter; i++) {
+    run_parallel_for(int_iter, num_threads, [&](size_t i) {
       EXPECT_EQ(this->data[i], ((this->num_ints - 1) - i) / num_threads + (((this->num_ints - 1) - i) % num_threads) * (this->num_ints / num_threads));
-    }
-    //*/
+    });
     run_parallel_for(int_iter, num_threads, [&](size_t i) {
       this->data[i] = i / num_threads + (i % num_threads) * (this->num_ints / num_threads);;
       //spdlog::info("Wrote to block address: {}", this->data[i] * sizeof(size_t));
@@ -455,6 +455,9 @@ TEST_P(PrivateerTest, IncrementalRandomSparseWrite) {
 }
 
 TEST_P(PrivateerTest, IncrementalRandomSparseWrite_Threaded) {
+#ifdef SIGACTION
+  GTEST_SKIP() << "SIGACTION mode does not support multi-threaded access.";
+#endif
   int num_iterations = std::get<2>(GetParam());
   int num_updates = std::get<3>(GetParam());
   size_t num_threads = std::get<4>(GetParam());
@@ -583,6 +586,9 @@ TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot) {
 }
 
 TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot_Threaded) {
+#ifdef SIGACTION
+  GTEST_SKIP() << "SIGACTION mode does not support multi-threaded access.";
+#endif
   int num_iterations = std::get<2>(GetParam());
   size_t update_ratio = std::get<3>(GetParam());
   size_t num_threads = std::get<4>(GetParam());
@@ -626,6 +632,9 @@ TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot_Threaded) {
 }
 
 TEST_P(PrivateerTest, IncrementalRandomSparseSnapshot_Skewed_Threaded) {
+#ifdef SIGACTION
+  GTEST_SKIP() << "SIGACTION mode does not support multi-threaded access.";
+#endif
   int num_iterations = std::get<2>(GetParam());
   size_t update_ratio = std::get<3>(GetParam());
   size_t num_threads = std::get<4>(GetParam());

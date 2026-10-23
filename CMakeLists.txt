@@ -148,6 +148,15 @@ function(privateer_fetch_boost)
 endfunction()
 
 function(privateer_apply_boost target_name)
+  set(_privateer_boost_include_dirs ${Boost_INCLUDE_DIRS})
+  if(Boost_INCLUDE_DIR)
+    list(APPEND _privateer_boost_include_dirs ${Boost_INCLUDE_DIR})
+  endif()
+  if(_privateer_boost_include_dirs)
+    list(REMOVE_DUPLICATES _privateer_boost_include_dirs)
+    target_include_directories(${target_name} PUBLIC ${_privateer_boost_include_dirs})
+  endif()
+
   if(TARGET Boost::uuid)
     target_link_libraries(${target_name} PUBLIC Boost::uuid)
     return()
@@ -160,11 +169,6 @@ function(privateer_apply_boost target_name)
 
   if(TARGET Boost::boost)
     target_link_libraries(${target_name} PUBLIC Boost::boost)
-    return()
-  endif()
-
-  if(Boost_INCLUDE_DIRS)
-    target_include_directories(${target_name} PUBLIC ${Boost_INCLUDE_DIRS})
     return()
   endif()
 

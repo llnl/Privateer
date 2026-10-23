@@ -148,6 +148,11 @@ function(privateer_fetch_boost)
 endfunction()
 
 function(privateer_apply_boost target_name)
+  if(TARGET Boost::uuid AND TARGET Boost::lexical_cast)
+    target_link_libraries(${target_name} PUBLIC Boost::uuid Boost::lexical_cast)
+    return()
+  endif()
+
   set(_privateer_boost_include_dirs)
   foreach(_privateer_boost_include_dir IN LISTS Boost_INCLUDE_DIRS Boost_INCLUDE_DIR)
     if(_privateer_boost_include_dir AND
@@ -204,6 +209,17 @@ function(privateer_apply_boost target_name)
 endfunction()
 
 # ------------------ Boost -------------------------------------------------------------------------------
+if(TARGET Boost::uuid AND NOT TARGET Boost::lexical_cast)
+  FetchContent_GetProperties(Boost SOURCE_DIR _privateer_parent_boost_source)
+  if(_privateer_parent_boost_source AND
+     EXISTS "${_privateer_parent_boost_source}/libs/lexical_cast/CMakeLists.txt")
+    set(BUILD_TESTING OFF)
+    add_subdirectory("${_privateer_parent_boost_source}/libs/lexical_cast"
+                     "${CMAKE_CURRENT_BINARY_DIR}/boost_lexical_cast")
+  endif()
+endif()
+
+if(NOT (TARGET Boost::uuid AND TARGET Boost::lexical_cast))
 set(Boost_NO_SYSTEM_PATHS OFF)
 set(_privateer_find_package_prefer_config ${CMAKE_FIND_PACKAGE_PREFER_CONFIG})
 set(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)
@@ -221,6 +237,7 @@ set(CMAKE_FIND_PACKAGE_PREFER_CONFIG ${_privateer_find_package_prefer_config})
 if (NOT Boost_FOUND)
   privateer_fetch_boost()
 endif ()
+endif()
 
 # ---------------------------------------------------------------------------------------------------------- 
 
